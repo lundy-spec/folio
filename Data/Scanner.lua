@@ -4,7 +4,11 @@
 
 local Scanner = {}
 
-function Scanner.ScanBags(api, bagIDs)
+-- `storage` (default "bags") tags each item for §4.3's sub-group
+-- rendering -- same container API works identically for bags and bank
+-- tabs, only the bagIDs passed in differ.
+function Scanner.ScanBags(api, bagIDs, storage)
+	storage = storage or "bags"
 	local items = {}
 	for _, bag in ipairs(bagIDs) do
 		local numSlots = api.GetContainerNumSlots(bag)
@@ -27,6 +31,7 @@ function Scanner.ScanBags(api, bagIDs)
 					bag = bag,
 					slot = slot,
 					bound = info.isBound,
+					storage = storage,
 					categoryID = nil,
 				})
 			end

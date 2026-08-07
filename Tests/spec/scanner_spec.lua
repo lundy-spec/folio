@@ -46,6 +46,21 @@ describe("Data.Scanner", function()
 		assert.are.equal(1002, items[2].icon)
 		assert.are.equal(610, items[2].ilvl)
 		assert.is_true(items[2].bound)
+
+		assert.are.equal("bags", items[1].storage) -- default when unspecified
+	end)
+
+	it("tags every item with the given storage instead of the default", function()
+		local fakeApi = {
+			GetContainerNumSlots = function() return 1 end,
+			GetContainerItemInfo = function()
+				return { itemID = 1, hyperlink = "item:1", itemName = "Thing", stackCount = 1, quality = 1 }
+			end,
+			GetItemLevel = function() return nil end,
+			GetItemClassInfo = function() return nil end,
+		}
+		local items = Scanner.ScanBags(fakeApi, { 6 }, "bank")
+		assert.are.equal("bank", items[1].storage)
 	end)
 
 	it("skips empty slots", function()

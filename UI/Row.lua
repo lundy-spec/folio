@@ -24,6 +24,7 @@ Row.OnHeaderClick = nil
 local INDENT = 12
 local FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 local HEADER_COLOR = { 1, 0.82, 0 }
+local SUBGROUP_COLOR = { 0.8, 0.8, 0.8 }
 
 local function Build(row)
 	row.icon = row:CreateTexture(nil, "ARTWORK")
@@ -49,7 +50,7 @@ local function Build(row)
 	end)
 	row:SetScript("OnMouseUp", function(self)
 		if self.entryKind == "header" and self.categoryID and Row.OnHeaderClick then
-			Row.OnHeaderClick(self.categoryID)
+			Row.OnHeaderClick(self.categoryID, self.subgroup)
 		end
 	end)
 
@@ -59,6 +60,7 @@ end
 local function InitHeader(row, entry, indent)
 	row.entryKind = "header"
 	row.categoryID = entry.categoryID
+	row.subgroup = entry.subgroup
 	row.itemLink = nil
 
 	row.icon:Hide()
@@ -67,7 +69,11 @@ local function InitHeader(row, entry, indent)
 	row.name:SetPoint("LEFT", row, "LEFT", indent, 0)
 	row.name:SetPoint("RIGHT", row.count, "LEFT", -4, 0)
 	row.name:SetText((entry.collapsed and "> " or "v ") .. entry.name)
-	row.name:SetTextColor(HEADER_COLOR[1], HEADER_COLOR[2], HEADER_COLOR[3])
+
+	-- §4.3 sub-group headers (Bags/Bank/Warband) read as a lighter,
+	-- secondary level under the gold category header.
+	local color = entry.subgroup and SUBGROUP_COLOR or HEADER_COLOR
+	row.name:SetTextColor(color[1], color[2], color[3])
 
 	row.count:SetText("(" .. entry.count .. ")")
 end
@@ -75,6 +81,7 @@ end
 local function InitItem(row, entry, indent)
 	row.entryKind = "item"
 	row.categoryID = nil
+	row.subgroup = nil
 	row.itemLink = entry.itemLink
 
 	row.icon:Show()

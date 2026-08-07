@@ -62,4 +62,24 @@ function API.GetCurrencyInfo(currencyID)
 	return C_CurrencyInfo.GetCurrencyInfo(currencyID)
 end
 
+-- §4.3: bank tab ids are also just bagIDs -- C_Container.GetContainerNumSlots
+-- / GetContainerItemInfo work on them exactly as they do for equipped bags
+-- (verified against Blizzard's docs: FetchPurchasedBankTabIDs returns
+-- Enum.BagIndex[]). pcall-guarded since warband access can plausibly be
+-- unavailable (e.g. no warband bank unlocked) and this must degrade to
+-- "no tabs" rather than error.
+local function GetPurchasedBankTabIDs(bankType)
+	local ok, ids = pcall(C_Bank.FetchPurchasedBankTabIDs, bankType)
+	if ok and ids then return ids end
+	return {}
+end
+
+function API.GetCharacterBankTabIDs()
+	return GetPurchasedBankTabIDs(Enum.BankType.Character)
+end
+
+function API.GetWarbandBankTabIDs()
+	return GetPurchasedBankTabIDs(Enum.BankType.Account)
+end
+
 return API
