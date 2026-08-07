@@ -97,6 +97,9 @@ function Frame.Create()
 	if f.SetTitle then
 		f:SetTitle("Folio")
 	end
+	if f.SetPortraitToAsset then
+		f:SetPortraitToAsset("Interface\\Icons\\INV_Misc_Bag_08")
+	end
 
 	AddResizeGrip(f, maxHeight)
 	AddPlaceholderRows(f)
