@@ -14,10 +14,16 @@ jobs:
       - uses: actions/checkout@v4
       - name: Forbid WoW globals in Logic/
         run: |
-          if [ -d Logic ] && grep -RInE '\b(C_[A-Za-z]+|CreateFrame|GetTime|UnitGUID|_G)\b' Logic/; then
-            echo "::error::Logic/ must be pure Lua with zero WoW API references — see lines above."
-            exit 1
+          violation=0
+          if [ -d Logic ]; then
+            for f in $(find Logic -name '*.lua'); do
+              if sed 's/--.*$//' "$f" | grep -InE '\b(C_[A-Za-z]+|CreateFrame|GetTime|UnitGUID|Enum|_G)\b'; then
+                echo "::error::$f references a WoW global — Logic/ must be pure Lua."
+                violation=1
+              fi
+            done
           fi
+          if [ "$violation" = "1" ]; then exit 1; fi
           echo "Logic/ is clean."
 
   test:

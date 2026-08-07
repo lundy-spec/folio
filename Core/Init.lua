@@ -1,12 +1,36 @@
 local ADDON_NAME, Folio = ...
 
+local UNCATEGORIZED = "uncategorized"
+
+local function GroupByCategory(tree, items)
+	local groups = {}
+	local resolved = Folio.Data.Assign.ResolveAll(tree, items)
+	for i, item in ipairs(items) do
+		local categoryID = resolved[i] or UNCATEGORIZED
+		groups[categoryID] = groups[categoryID] or {}
+		table.insert(groups[categoryID], item)
+	end
+	return groups
+end
+
 -- Full rescan on every bag change — no diffing yet (architecture principle
 -- 3 wants incremental diffs eventually; this spike proves the virtualized
 -- list works with real data first).
 local function RefreshItems()
 	local items = Folio.Data.Scanner.ScanBags(Folio.API, Folio.API.GetBagIDs())
 	Folio.Data.Cache.SetItems(items)
-	Folio.UI.ListView.SetItems(items)
+
+	local tree = Folio.Config.db.categories
+	local groups = GroupByCategory(tree, items)
+	local rows = Folio.Render.BuildRows(tree, groups)
+	Folio.UI.ListView.SetItems(rows)
+end
+
+Folio.UI.Row.OnHeaderClick = function(categoryID)
+	local node = Folio.Tree.GetNode(Folio.Config.db.categories, categoryID)
+	if not node then return end
+	node.collapsed = not node.collapsed
+	RefreshItems()
 end
 
 -- Currencies are paused (Data/Currency.lua's pin/seed machinery stays,

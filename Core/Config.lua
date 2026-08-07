@@ -23,6 +23,13 @@ function Config.Init()
 	if FOLIO_DB.seededCurrencies == nil then
 		FOLIO_DB.seededCurrencies = defaults.seededCurrencies
 	end
+	-- F11: seed once. Folio.Seed is pure (no WoW API calls), safe to run
+	-- here at ADDON_LOADED time rather than waiting for PLAYER_LOGIN. Once
+	-- FOLIO_DB.categories exists (even as an emptied-out tree, if the user
+	-- deletes everything later) this never re-seeds.
+	if not FOLIO_DB.categories then
+		FOLIO_DB.categories = Folio.Seed.BuildDefaultTree()
+	end
 	Config.db = FOLIO_DB
 end
 

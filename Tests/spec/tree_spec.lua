@@ -264,5 +264,24 @@ describe("Logic.Tree", function()
 				{ id = "b", depth = 0 },
 			}, visited)
 		end)
+
+		it("visits children before their parent in post-order mode", function()
+			Tree.AddNode(tree, "a", { order = 1 })
+			Tree.AddNode(tree, "a1", { parent = "a", order = 1 })
+			Tree.AddNode(tree, "a2", { parent = "a", order = 2 })
+			Tree.AddNode(tree, "b", { order = 2 })
+
+			local visited = {}
+			Tree.Walk(tree, Tree.ROOT, function(node, depth)
+				table.insert(visited, { id = node.id, depth = depth })
+			end, true)
+
+			assert.are.same({
+				{ id = "a1", depth = 1 },
+				{ id = "a2", depth = 1 },
+				{ id = "a", depth = 0 },
+				{ id = "b", depth = 0 },
+			}, visited)
+		end)
 	end)
 end)

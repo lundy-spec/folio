@@ -4,6 +4,11 @@ local _, Folio = ...
 -- use (guarded by row.built) rather than via XML, since children survive
 -- pool reuse — SetElementInitializer re-calls Row.Initialize on the same
 -- physical frame as rows scroll in and out of view.
+--
+-- One pooled shape renders both category headers and items (§12 step 12)
+-- rather than juggling two widget templates through the ScrollBox's
+-- single element initializer — icon hidden and text styled differently
+-- per row.kind (see Logic/Render.lua for where that field comes from).
 
 local Row = {}
 Folio.UI = Folio.UI or {}
@@ -12,12 +17,17 @@ Folio.UI.Row = Row
 -- §6.2 UI9: Compact density (text-forward, ~16px rows) ships as default.
 Row.HEIGHT = 18
 
+-- Set by Core/Init.lua so clicking a header can toggle collapse + refresh
+-- without Row.lua needing to know about the tree/refresh machinery.
+Row.OnHeaderClick = nil
+
+local INDENT = 12
 local FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
+local HEADER_COLOR = { 1, 0.82, 0 }
 
 local function Build(row)
 	row.icon = row:CreateTexture(nil, "ARTWORK")
 	row.icon:SetSize(Row.HEIGHT - 4, Row.HEIGHT - 4)
-	row.icon:SetPoint("LEFT", 4, 0)
 	row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
 	row.count = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -25,13 +35,11 @@ local function Build(row)
 	row.count:SetJustifyH("RIGHT")
 
 	row.name = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	row.name:SetPoint("LEFT", row.icon, "RIGHT", 4, 0)
-	row.name:SetPoint("RIGHT", row.count, "LEFT", -4, 0)
 	row.name:SetJustifyH("LEFT")
 
 	row:EnableMouse(true)
 	row:SetScript("OnEnter", function(self)
-		if not self.itemLink then return end
+		if self.entryKind ~= "item" or not self.itemLink then return end
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 		GameTooltip:SetHyperlink(self.itemLink)
 		GameTooltip:Show()
@@ -39,27 +47,67 @@ local function Build(row)
 	row:SetScript("OnLeave", function()
 		GameTooltip:Hide()
 	end)
+	row:SetScript("OnMouseUp", function(self)
+		if self.entryKind == "header" and self.categoryID and Row.OnHeaderClick then
+			Row.OnHeaderClick(self.categoryID)
+		end
+	end)
 
 	row.built = true
 end
 
-function Row.Initialize(row, item)
-	if not row.built then
-		Build(row)
-	end
+local function InitHeader(row, entry, indent)
+	row.entryKind = "header"
+	row.categoryID = entry.categoryID
+	row.itemLink = nil
 
-	row.itemLink = item.itemLink
-	row.icon:SetTexture(item.icon or FALLBACK_ICON)
-	row.name:SetText(item.name or ("Item " .. tostring(item.itemID)))
+	row.icon:Hide()
 
-	local color = ITEM_QUALITY_COLORS[item.quality or 1]
+	row.name:ClearAllPoints()
+	row.name:SetPoint("LEFT", row, "LEFT", indent, 0)
+	row.name:SetPoint("RIGHT", row.count, "LEFT", -4, 0)
+	row.name:SetText((entry.collapsed and "> " or "v ") .. entry.name)
+	row.name:SetTextColor(HEADER_COLOR[1], HEADER_COLOR[2], HEADER_COLOR[3])
+
+	row.count:SetText("(" .. entry.count .. ")")
+end
+
+local function InitItem(row, entry, indent)
+	row.entryKind = "item"
+	row.categoryID = nil
+	row.itemLink = entry.itemLink
+
+	row.icon:Show()
+	row.icon:ClearAllPoints()
+	row.icon:SetPoint("LEFT", row, "LEFT", indent, 0)
+	row.icon:SetTexture(entry.icon or FALLBACK_ICON)
+
+	row.name:ClearAllPoints()
+	row.name:SetPoint("LEFT", row.icon, "RIGHT", 4, 0)
+	row.name:SetPoint("RIGHT", row.count, "LEFT", -4, 0)
+	row.name:SetText(entry.name or ("Item " .. tostring(entry.itemID)))
+
+	local color = ITEM_QUALITY_COLORS[entry.quality or 1]
 	if color then
 		row.name:SetTextColor(color.r, color.g, color.b)
 	else
 		row.name:SetTextColor(1, 1, 1)
 	end
 
-	row.count:SetText((item.count or 1) > 1 and tostring(item.count) or "")
+	row.count:SetText((entry.count or 1) > 1 and tostring(entry.count) or "")
+end
+
+function Row.Initialize(row, entry)
+	if not row.built then
+		Build(row)
+	end
+
+	local indent = 4 + (entry.depth or 0) * INDENT
+	if entry.kind == "header" then
+		InitHeader(row, entry, indent)
+	else
+		InitItem(row, entry, indent)
+	end
 end
 
 return Row

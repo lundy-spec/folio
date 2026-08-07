@@ -11,9 +11,12 @@ Core/Config.lua
 Core/API.lua
 Logic/Tree.lua
 Logic/Rules.lua
+Logic/Seed.lua
+Logic/Render.lua
 Data/Cache.lua
 Data/Scanner.lua
 Data/Currency.lua
+Data/Assign.lua
 UI/Row.lua
 UI/ListView.lua
 UI/CurrencyBar.lua

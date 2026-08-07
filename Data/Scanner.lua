@@ -11,6 +11,7 @@ function Scanner.ScanBags(api, bagIDs)
 		for slot = 1, numSlots do
 			local info = api.GetContainerItemInfo(bag, slot)
 			if info and info.itemID then
+				local classInfo = api.GetItemClassInfo(info.hyperlink)
 				table.insert(items, {
 					kind = "item",
 					itemID = info.itemID,
@@ -20,6 +21,9 @@ function Scanner.ScanBags(api, bagIDs)
 					count = info.stackCount,
 					quality = info.quality,
 					ilvl = api.GetItemLevel(info.hyperlink),
+					itemClass = classInfo and classInfo.classID,
+					subClass = classInfo and classInfo.subClassID,
+					equipSlot = classInfo and classInfo.equipLoc,
 					bag = bag,
 					slot = slot,
 					bound = info.isBound,

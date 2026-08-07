@@ -185,13 +185,20 @@ function Tree.GetPath(tree, id)
 	return path
 end
 
--- Depth-first pre-order traversal, respecting sibling order.
-function Tree.Walk(tree, parentId, fn, depth)
+-- Depth-first traversal, respecting sibling order. `postOrder` (default
+-- false/pre-order) visits a node after its children instead of before.
+-- Rendering wants pre-order -- a parent header must appear before its
+-- children. Rule resolution wants post-order -- the most specific
+-- (deepest) match should be checked before a broader ancestor, or a
+-- rule-bearing parent would always win first and its children's more
+-- specific rules would never be reachable (see Data/Assign.lua).
+function Tree.Walk(tree, parentId, fn, postOrder, depth)
 	parentId = parentId or ROOT
 	depth = depth or 0
 	for _, node in ipairs(Tree.GetChildren(tree, parentId)) do
-		fn(node, depth)
-		Tree.Walk(tree, node.id, fn, depth + 1)
+		if not postOrder then fn(node, depth) end
+		Tree.Walk(tree, node.id, fn, postOrder, depth + 1)
+		if postOrder then fn(node, depth) end
 	end
 end
 

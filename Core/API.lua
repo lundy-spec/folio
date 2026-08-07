@@ -35,6 +35,16 @@ function API.GetItemLevel(itemLink)
 	return C_Item.GetDetailedItemLevelInfo(itemLink)
 end
 
+-- F14/Logic/Seed.lua's rule predicates: classID/subClassID, verified
+-- against Blizzard's docs (C_Item.GetItemInfoInstant returns itemID,
+-- itemType, itemSubType, itemEquipLoc, icon, classID, subClassID).
+function API.GetItemClassInfo(itemLink)
+	if not itemLink then return nil end
+	local _, _, _, equipLoc, _, classID, subClassID = C_Item.GetItemInfoInstant(itemLink)
+	if not classID then return nil end
+	return { classID = classID, subClassID = subClassID, equipLoc = equipLoc }
+end
+
 function API.GetMoney()
 	return GetMoney()
 end

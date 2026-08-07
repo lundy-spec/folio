@@ -18,6 +18,11 @@ describe("Data.Scanner", function()
 			GetItemLevel = function(link)
 				return link == "item:222" and 610 or nil
 			end,
+			GetItemClassInfo = function(link)
+				if link == "item:111" then
+					return { classID = 0, subClassID = 1, equipLoc = "" }
+				end
+			end,
 		}
 
 		local items = Scanner.ScanBags(fakeApi, { 0, 1 })
@@ -32,6 +37,10 @@ describe("Data.Scanner", function()
 		assert.are.equal(1001, items[1].icon)
 		assert.is_nil(items[1].ilvl)
 		assert.is_false(items[1].bound)
+		assert.are.equal(0, items[1].itemClass)
+		assert.are.equal(1, items[1].subClass)
+
+		assert.is_nil(items[2].itemClass) -- fake API returned nothing for this link
 
 		assert.are.equal(222, items[2].itemID)
 		assert.are.equal(1002, items[2].icon)
