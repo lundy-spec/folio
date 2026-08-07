@@ -10,6 +10,7 @@
 Core/Config.lua
 Core/API.lua
 Logic/Tree.lua
+Logic/Rules.lua
 Data/Cache.lua
 Data/Scanner.lua
 UI/Row.lua
