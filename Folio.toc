@@ -7,4 +7,7 @@
 ## X-License: CC0-1.0
 ## X-Curse-Project-ID: TODO
 
+Core/Config.lua
+Core/API.lua
 Core/Init.lua
+UI/Frame.lua
