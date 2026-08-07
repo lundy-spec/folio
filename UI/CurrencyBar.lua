@@ -54,6 +54,11 @@ function CurrencyBar.Create(parent)
 	return bar
 end
 
+-- Temporary, for /folio debug -- not part of the public module surface.
+function CurrencyBar.DebugGetBar()
+	return bar
+end
+
 -- entries: gold first (if present), then pinned currencies -- CUR3, the
 -- unified entry model means both render through the same code path.
 function CurrencyBar.SetEntries(entries)
