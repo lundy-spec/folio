@@ -1,23 +1,54 @@
 local Assign = require("Data.Assign")
 local Tree = require("Logic.Tree")
-local Seed = require("Logic.Seed")
+
+-- Seed.lua's starter categories carry no rules by design (product
+-- direction: empty shells, manual sort) -- these specs build their own
+-- small rule-bearing trees to exercise Assign's rule-matching machinery,
+-- which is unchanged and still fully supported for whenever a future
+-- opt-in auto-sort feature uses it.
+
+local function TreeWithClassRules()
+	local tree = Tree.New()
+	Tree.AddNode(tree, "consumables", {
+		name = "Consumables",
+		rules = { { field = "itemClass", op = "eq", value = 0 } },
+	})
+	Tree.AddNode(tree, "equipment", { name = "Equipment" })
+	Tree.AddNode(tree, "weapons", {
+		name = "Weapons",
+		parent = "equipment",
+		rules = { { field = "itemClass", op = "eq", value = 2 } },
+	})
+	Tree.AddNode(tree, "armor", {
+		name = "Armor",
+		parent = "equipment",
+		rules = { { field = "itemClass", op = "eq", value = 4 } },
+	})
+	return tree
+end
 
 describe("Data.Assign", function()
 	describe("CategoryFor", function()
 		it("resolves a top-level match directly", function()
-			local tree = Seed.BuildDefaultTree()
+			local tree = TreeWithClassRules()
 			assert.are.equal("consumables", Assign.CategoryFor(tree, { itemClass = 0 }))
 		end)
 
 		it("resolves into the specific nested child rather than the grouping parent", function()
-			local tree = Seed.BuildDefaultTree()
+			local tree = TreeWithClassRules()
 			assert.are.equal("weapons", Assign.CategoryFor(tree, { itemClass = 2 }))
 			assert.are.equal("armor", Assign.CategoryFor(tree, { itemClass = 4 }))
 		end)
 
 		it("returns nil when nothing matches, leaving the fallback to the caller", function()
-			local tree = Seed.BuildDefaultTree()
+			local tree = TreeWithClassRules()
 			assert.is_nil(Assign.CategoryFor(tree, { itemClass = 999 }))
+		end)
+
+		it("R2: a manual override wins outright, without even attempting rule resolution", function()
+			local tree = TreeWithClassRules()
+			-- Would otherwise resolve to "consumables" via its rule.
+			assert.are.equal("junk", Assign.CategoryFor(tree, { itemClass = 0 }, "junk"))
 		end)
 
 		it("R5: a nested category's rules apply within its parent's scope", function()
@@ -64,11 +95,11 @@ describe("Data.Assign", function()
 
 	describe("ResolveAll", function()
 		it("resolves every item against the same candidate set, in order", function()
-			local tree = Seed.BuildDefaultTree()
+			local tree = TreeWithClassRules()
 			local items = {
-				{ itemClass = 0 }, -- consumables
-				{ itemClass = 2 }, -- weapons
-				{ itemClass = 999 }, -- unmatched
+				{ itemID = 1, itemClass = 0 }, -- consumables
+				{ itemID = 2, itemClass = 2 }, -- weapons
+				{ itemID = 3, itemClass = 999 }, -- unmatched
 			}
 			local results = Assign.ResolveAll(tree, items)
 			assert.are.equal("consumables", results[1])
@@ -77,8 +108,19 @@ describe("Data.Assign", function()
 		end)
 
 		it("returns an empty table for an empty item list", function()
-			local tree = Seed.BuildDefaultTree()
+			local tree = TreeWithClassRules()
 			assert.are.same({}, Assign.ResolveAll(tree, {}))
+		end)
+
+		it("R2: an override for an item's id wins over what its rules would otherwise match", function()
+			local tree = TreeWithClassRules()
+			local items = {
+				{ itemID = 111, itemClass = 0 }, -- would rule-match "consumables"
+				{ itemID = 222, itemClass = 0 }, -- no override -> rule-matches normally
+			}
+			local results = Assign.ResolveAll(tree, items, { [111] = "junk" })
+			assert.are.equal("junk", results[1])
+			assert.are.equal("consumables", results[2])
 		end)
 	end)
 end)

@@ -1,42 +1,39 @@
 local Seed = require("Logic.Seed")
 local Tree = require("Logic.Tree")
-local Rules = require("Logic.Rules")
 
 describe("Logic.Seed", function()
 	describe("BuildDefaultTree", function()
-		it("creates the expected top-level categories", function()
+		it("creates the six flat starter categories plus Uncategorized", function()
 			local tree = Seed.BuildDefaultTree()
 			local ids = {}
 			for _, node in ipairs(Tree.GetChildren(tree, Tree.ROOT)) do
 				table.insert(ids, node.id)
 			end
 			table.sort(ids)
-			assert.are.same(
-				{ "consumables", "equipment", "junk", "questitems", "tradegoods", "uncategorized" },
-				ids
-			)
+			assert.are.same({
+				"consumables",
+				"equipment",
+				"junk",
+				"miscellaneous",
+				"questitems",
+				"tradegoods",
+				"uncategorized",
+			}, ids)
 		end)
 
-		it("nests Weapons and Armor under Equipment", function()
+		it("gives every category no rules -- nothing auto-sorts by default", function()
 			local tree = Seed.BuildDefaultTree()
-			local ids = {}
-			for _, node in ipairs(Tree.GetChildren(tree, "equipment")) do
-				table.insert(ids, node.id)
+			for id in pairs(tree.nodes) do
+				local rules = Tree.GetNode(tree, id).rules
+				assert.is_true(rules == nil or #rules == 0, id .. " should have no rules")
 			end
-			table.sort(ids)
-			assert.are.same({ "armor", "weapons" }, ids)
 		end)
 
-		it("gives Equipment no rules of its own (pure grouping)", function()
+		it("creates no nesting -- every category is top-level", function()
 			local tree = Seed.BuildDefaultTree()
-			local equipment = Tree.GetNode(tree, "equipment")
-			assert.is_true(equipment.rules == nil or #equipment.rules == 0)
-		end)
-
-		it("gives Uncategorized no rules (manual-only fallback)", function()
-			local tree = Seed.BuildDefaultTree()
-			local uncategorized = Tree.GetNode(tree, "uncategorized")
-			assert.is_true(uncategorized.rules == nil or #uncategorized.rules == 0)
+			for id in pairs(tree.nodes) do
+				assert.are.equal(Tree.ROOT, Tree.GetNode(tree, id).parent)
+			end
 		end)
 
 		it("starts every category collapsed (UI11)", function()
@@ -44,16 +41,6 @@ describe("Logic.Seed", function()
 			for id in pairs(tree.nodes) do
 				assert.is_true(Tree.GetNode(tree, id).collapsed, id .. " should start collapsed")
 			end
-		end)
-
-		it("matches items by the documented itemClass on each rule-bearing category", function()
-			local tree = Seed.BuildDefaultTree()
-			assert.is_true(Rules.Matches({ itemClass = 0 }, Tree.GetNode(tree, "consumables").rules))
-			assert.is_true(Rules.Matches({ itemClass = 7 }, Tree.GetNode(tree, "tradegoods").rules))
-			assert.is_true(Rules.Matches({ itemClass = 12 }, Tree.GetNode(tree, "questitems").rules))
-			assert.is_true(Rules.Matches({ itemClass = 2 }, Tree.GetNode(tree, "weapons").rules))
-			assert.is_true(Rules.Matches({ itemClass = 4 }, Tree.GetNode(tree, "armor").rules))
-			assert.is_true(Rules.Matches({ itemClass = 15 }, Tree.GetNode(tree, "junk").rules))
 		end)
 	end)
 end)

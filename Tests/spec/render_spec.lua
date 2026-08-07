@@ -13,9 +13,16 @@ describe("Logic.Render", function()
 			assert.are.same({}, Render.BuildRows(tree, {}, false))
 		end)
 
-		it("skips a category with no items anywhere in its subtree", function()
+		it("still renders a category with no items anywhere in its subtree", function()
+			-- Categories are a fixed, user-organized filing structure now
+			-- (empty shells the player drags items into), not an emergent
+			-- view of auto-sorted content -- you can't drag into a category
+			-- you can't see.
 			Tree.AddNode(tree, "empty", { name = "Empty" })
-			assert.are.same({}, Render.BuildRows(tree, {}, false))
+			local rows = Render.BuildRows(tree, {}, false)
+			assert.are.equal(1, #rows)
+			assert.are.equal("empty", rows[1].categoryID)
+			assert.are.equal(0, rows[1].count)
 		end)
 
 		it("renders a header followed by its bag items, flat, no sub-groups", function()

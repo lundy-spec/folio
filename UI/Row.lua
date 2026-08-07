@@ -105,6 +105,7 @@ local function InitItem(row, entry, indent)
 	row.categoryID = nil
 	row.subgroup = nil
 	row.itemLink = entry.itemLink
+	row.itemID = entry.itemID
 	row.itemBag = entry.bag
 	row.itemSlot = entry.slot
 	row.itemStorage = entry.storage

@@ -16,6 +16,10 @@ local defaults = {
 	seededCurrencies = false,
 	-- F8: "Default on; must degrade gracefully when off."
 	bagReplacementEnabled = true,
+	-- R2: manual category assignment, keyed by itemID. A sticky override
+	-- no rule can move -- checked before rule resolution in
+	-- Data/Assign.lua.
+	itemOverrides = {},
 }
 
 function Config.Init()
@@ -28,6 +32,7 @@ function Config.Init()
 	if FOLIO_DB.bagReplacementEnabled == nil then
 		FOLIO_DB.bagReplacementEnabled = defaults.bagReplacementEnabled
 	end
+	FOLIO_DB.itemOverrides = FOLIO_DB.itemOverrides or CopyTable(defaults.itemOverrides)
 	-- F11: seed once. Folio.Seed is pure (no WoW API calls), safe to run
 	-- here at ADDON_LOADED time rather than waiting for PLAYER_LOGIN. Once
 	-- FOLIO_DB.categories exists (even as an emptied-out tree, if the user

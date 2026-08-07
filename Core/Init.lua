@@ -27,7 +27,7 @@ end
 -- currently belongs to -- see Row.OnItemDragStop below.
 local function GroupByCategory(tree, items)
 	local groups = {}
-	local resolved = Folio.Data.Assign.ResolveAll(tree, items)
+	local resolved = Folio.Data.Assign.ResolveAll(tree, items, Folio.Config.db.itemOverrides)
 	for i, item in ipairs(items) do
 		local categoryID = resolved[i] or UNCATEGORIZED
 		item.categoryID = categoryID
@@ -63,10 +63,11 @@ Folio.UI.Row.OnHeaderClick = function(categoryID, subgroup)
 	RefreshItems()
 end
 
--- §4.3 S5, narrowed first pass: drag an item onto a Bags/Bank/Warband
--- sub-group header WITHIN ITS OWN CATEGORY to transfer it. Cross-category
--- transfer+recategorize, stack modifiers, and bulk queue/throttle are
--- deliberate follow-ups -- see Logic/Transfer.lua's header.
+-- §4.3 (Q17's drop-target-decides model): drop on a bare category header
+-- recategorizes (R2: sticky manual override, no item movement); drop on
+-- a Bags/Bank/Warband sub-group within the SAME category transfers (S5);
+-- drop on a different category's sub-group does both. Stack modifiers
+-- and bulk queue/throttle are deliberate follow-ups.
 
 local function StorageBagIDs(storage)
 	if storage == "bank" then return Folio.API.GetCharacterBankTabIDs() end
@@ -87,36 +88,24 @@ end
 -- A header's own row is only ~18px tall in a dense list, so landing a
 -- drop precisely on it is unrealistic -- confirmed live: GetMouseFoci()
 -- was working fine, drops were just landing on an adjacent item row one
--- pixel off. Treat a drop on ANY row belonging to a subgroup (its header
--- or one of its items) as targeting that subgroup, same fix as the
--- deleted UI/DragPrototype.lua's full-block hit boxes during Q17 testing.
+-- pixel off. Treat a drop on ANY row belonging to a category/sub-group
+-- (its header or one of its items) as targeting that category/sub-group,
+-- same fix as the deleted UI/DragPrototype.lua's full-block hit boxes
+-- during Q17 testing. `subgroup` is nil for a bare category-header drop.
 local function ResolveDropTarget(target)
 	if not target then return nil end
-	if target.entryKind == "header" and target.subgroup then
+	if target.entryKind == "header" and target.categoryID then
 		return target.categoryID, target.subgroup
 	end
-	if target.entryKind == "item" and target.itemCategoryID and target.itemStorage then
+	if target.entryKind == "item" and target.itemCategoryID then
 		return target.itemCategoryID, target.itemStorage
 	end
 	return nil
 end
 
-Folio.UI.Row.OnItemDragStop = function(itemRow, target)
-	local categoryID, toStorage = ResolveDropTarget(target)
-
-	-- Not dropped on any part of one of our own sub-groups -- leave the
-	-- item on the cursor exactly as native WoW does on an invalid drop;
-	-- the player can still click any real bag/bank slot to place it, or
-	-- click the same slot again to cancel.
-	if not categoryID then
-		return
-	end
-
-	if categoryID ~= itemRow.itemCategoryID then
-		print("|cff33ff99Folio|r cross-category drag isn't supported yet -- item's still on your cursor, click a bag/bank slot to place it.")
-		return
-	end
-
+-- Physically moves the item, returning it to its original slot if the
+-- move isn't possible. Returns true only if the move actually happened.
+local function TryTransfer(itemRow, toStorage)
 	local bankType = BankTypeForStorage(toStorage)
 	local eligible = true
 	if bankType then
@@ -133,11 +122,41 @@ Folio.UI.Row.OnItemDragStop = function(itemRow, target)
 	})
 
 	if not ok then
-		print("|cff33ff99Folio|r can't move that there (" .. reason .. ") -- item's still on your cursor.")
-		return
+		print("|cff33ff99Folio|r couldn't move it to " .. toStorage .. " (" .. reason .. ").")
+		Folio.API.PickupContainerItem(itemRow.itemBag, itemRow.itemSlot) -- place back
+		return false
 	end
 
 	Folio.API.PickupContainerItem(destBag, destSlot)
+	return true
+end
+
+Folio.UI.Row.OnItemDragStop = function(itemRow, target)
+	local categoryID, toStorage = ResolveDropTarget(target)
+
+	-- Not dropped on any part of one of our own categories -- leave the
+	-- item on the cursor exactly as native WoW does on an invalid drop;
+	-- the player can still click any real bag/bank slot to place it, or
+	-- click the same slot again to cancel.
+	if not categoryID then
+		return
+	end
+
+	if categoryID ~= itemRow.itemCategoryID then
+		Folio.Config.db.itemOverrides[itemRow.itemID] = categoryID
+		local node = Folio.Tree.GetNode(Folio.Config.db.categories, categoryID)
+		print(("|cff33ff99Folio|r moved %s to %s."):format(itemRow.itemLink or "item", node and node.name or categoryID))
+	end
+
+	if toStorage and toStorage ~= itemRow.itemStorage then
+		TryTransfer(itemRow, toStorage)
+	else
+		-- No physical storage change requested (or dropped back into its
+		-- own storage) -- place the item back where it was, whether or
+		-- not its category changed.
+		Folio.API.PickupContainerItem(itemRow.itemBag, itemRow.itemSlot)
+	end
+
 	RefreshItems()
 end
 
@@ -211,6 +230,17 @@ local function SetAllCollapsed(collapsed)
 	RefreshItems()
 end
 
+-- Dev/testing escape hatch: the category tree's *structure* changed
+-- (not just a default value), so an existing save won't pick up the new
+-- starter set on its own -- Config.Init() only seeds when categories
+-- doesn't exist yet. Wipes manual sorting too, for a clean slate.
+local function ResetCategories()
+	Folio.Config.db.categories = Folio.Seed.BuildDefaultTree()
+	Folio.Config.db.itemOverrides = {}
+	RefreshItems()
+	print("|cff33ff99Folio|r categories reset to defaults.")
+end
+
 -- F8: no Options panel yet to flip this from, so a slash command in the
 -- meantime.
 local function ToggleBagReplacement()
@@ -234,6 +264,8 @@ SlashCmdList.FOLIO = function(msg)
 		SetAllCollapsed(true)
 	elseif msg == "expandall" then
 		SetAllCollapsed(false)
+	elseif msg == "resetcategories" then
+		ResetCategories()
 	else
 		Folio.UI.Frame.Toggle()
 	end

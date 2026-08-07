@@ -35,8 +35,13 @@ end
 -- R1/R5: first-match-wins over the tree, most-specific-first, each
 -- candidate's rules pre-merged with its ancestors'. Returns nil if
 -- nothing matches; the caller decides the fallback (typically an
--- "uncategorized" category id).
-function Assign.CategoryFor(tree, item)
+-- "uncategorized" category id). `override`, if given, wins outright
+-- (R2: a manual assignment is a sticky override no rule can move) --
+-- rule resolution is never even attempted.
+function Assign.CategoryFor(tree, item, override)
+	if override then
+		return override
+	end
 	return Rules.Resolve(item, BuildCandidates(tree))
 end
 
@@ -44,12 +49,18 @@ end
 -- item, instead of re-walking the tree per item (R4's spirit -- full
 -- item->category caching across refreshes can come later if it's ever
 -- actually the bottleneck). Returns a parallel array of category ids
--- (or nil per slot where nothing matched).
-function Assign.ResolveAll(tree, items)
+-- (or nil per slot where nothing matched). `overrides` (itemID ->
+-- categoryID, R2) is checked before rule resolution per item.
+function Assign.ResolveAll(tree, items, overrides)
 	local candidates = BuildCandidates(tree)
 	local results = {}
 	for i, item in ipairs(items) do
-		results[i] = Rules.Resolve(item, candidates)
+		local override = overrides and overrides[item.itemID]
+		if override then
+			results[i] = override
+		else
+			results[i] = Rules.Resolve(item, candidates)
+		end
 	end
 	return results
 end
