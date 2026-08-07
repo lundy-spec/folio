@@ -21,4 +21,5 @@ UI/Row.lua
 UI/ListView.lua
 UI/CurrencyBar.lua
 UI/Frame.lua
+Core/BagReplacement.lua
 Core/Init.lua

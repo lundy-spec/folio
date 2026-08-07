@@ -55,6 +55,9 @@ bootstrap:SetScript("OnEvent", function(self, event, loadedAddon)
 		Folio.UI.Frame.Create()
 		RefreshItems()
 		RefreshCurrencies()
+		if Folio.Config.db.bagReplacementEnabled then
+			Folio.BagReplacement.Enable()
+		end
 		print("|cff33ff99Folio|r loaded — type /folio to toggle the window")
 	elseif event == "BAG_UPDATE_DELAYED" then
 		RefreshItems()
@@ -71,10 +74,25 @@ local function DumpFixture()
 	print(("|cff33ff99Folio|r dumped %d items to SavedVariables (FOLIO_DB.dump)."):format(#items))
 end
 
+-- F8: no Options panel yet to flip this from, so a slash command in the
+-- meantime.
+local function ToggleBagReplacement()
+	Folio.Config.db.bagReplacementEnabled = not Folio.Config.db.bagReplacementEnabled
+	if Folio.Config.db.bagReplacementEnabled then
+		Folio.BagReplacement.Enable()
+		print("|cff33ff99Folio|r bag replacement enabled — the default bag keybind/buttons open Folio.")
+	else
+		Folio.BagReplacement.Disable()
+		print("|cff33ff99Folio|r bag replacement disabled — Blizzard's bags are back.")
+	end
+end
+
 SLASH_FOLIO1 = "/folio"
 SlashCmdList.FOLIO = function(msg)
 	if msg == "dump" then
 		DumpFixture()
+	elseif msg == "bagreplace" then
+		ToggleBagReplacement()
 	else
 		Folio.UI.Frame.Toggle()
 	end

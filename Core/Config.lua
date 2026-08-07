@@ -14,6 +14,8 @@ local defaults = {
 	},
 	pinnedCurrencies = {},
 	seededCurrencies = false,
+	-- F8: "Default on; must degrade gracefully when off."
+	bagReplacementEnabled = true,
 }
 
 function Config.Init()
@@ -22,6 +24,9 @@ function Config.Init()
 	FOLIO_DB.pinnedCurrencies = FOLIO_DB.pinnedCurrencies or CopyTable(defaults.pinnedCurrencies)
 	if FOLIO_DB.seededCurrencies == nil then
 		FOLIO_DB.seededCurrencies = defaults.seededCurrencies
+	end
+	if FOLIO_DB.bagReplacementEnabled == nil then
+		FOLIO_DB.bagReplacementEnabled = defaults.bagReplacementEnabled
 	end
 	-- F11: seed once. Folio.Seed is pure (no WoW API calls), safe to run
 	-- here at ADDON_LOADED time rather than waiting for PLAYER_LOGIN. Once
