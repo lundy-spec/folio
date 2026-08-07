@@ -84,42 +84,39 @@ Folio.UI.Row.OnItemDragStart = function(itemRow)
 	Folio.API.PickupContainerItem(itemRow.itemBag, itemRow.itemSlot)
 end
 
-Folio.UI.Row.OnItemDragStop = function(itemRow, target)
-	-- TEMPORARY debug for the drop-target-not-detected report -- remove
-	-- once the real cause is found.
-	print(
-		"|cff33ff99[folio debug]|r target:",
-		target,
-		target and target.GetName and target:GetName(),
-		"entryKind:",
-		target and target.entryKind,
-		"subgroup:",
-		target and target.subgroup
-	)
-	local foci = GetMouseFoci and GetMouseFoci()
-	if foci then
-		print("|cff33ff99[folio debug]|r foci count:", #foci)
-		for i, f in ipairs(foci) do
-			print("|cff33ff99[folio debug]|r  foci[" .. i .. "]:", f, f.GetName and f:GetName())
-		end
-	else
-		print("|cff33ff99[folio debug]|r GetMouseFoci returned nothing")
+-- A header's own row is only ~18px tall in a dense list, so landing a
+-- drop precisely on it is unrealistic -- confirmed live: GetMouseFoci()
+-- was working fine, drops were just landing on an adjacent item row one
+-- pixel off. Treat a drop on ANY row belonging to a subgroup (its header
+-- or one of its items) as targeting that subgroup, same fix as the
+-- deleted UI/DragPrototype.lua's full-block hit boxes during Q17 testing.
+local function ResolveDropTarget(target)
+	if not target then return nil end
+	if target.entryKind == "header" and target.subgroup then
+		return target.categoryID, target.subgroup
 	end
+	if target.entryKind == "item" and target.itemCategoryID and target.itemStorage then
+		return target.itemCategoryID, target.itemStorage
+	end
+	return nil
+end
 
-	-- Not dropped on one of our own sub-group headers -- leave the item
-	-- on the cursor exactly as native WoW does on an invalid drop; the
-	-- player can still click any real bag/bank slot to place it, or
+Folio.UI.Row.OnItemDragStop = function(itemRow, target)
+	local categoryID, toStorage = ResolveDropTarget(target)
+
+	-- Not dropped on any part of one of our own sub-groups -- leave the
+	-- item on the cursor exactly as native WoW does on an invalid drop;
+	-- the player can still click any real bag/bank slot to place it, or
 	-- click the same slot again to cancel.
-	if not target or target.entryKind ~= "header" or not target.subgroup then
+	if not categoryID then
 		return
 	end
 
-	if target.categoryID ~= itemRow.itemCategoryID then
+	if categoryID ~= itemRow.itemCategoryID then
 		print("|cff33ff99Folio|r cross-category drag isn't supported yet -- item's still on your cursor, click a bag/bank slot to place it.")
 		return
 	end
 
-	local toStorage = target.subgroup
 	local bankType = BankTypeForStorage(toStorage)
 	local eligible = true
 	if bankType then
