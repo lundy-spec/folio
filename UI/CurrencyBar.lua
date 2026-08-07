@@ -27,7 +27,6 @@ local function AcquirePip(index)
 		pip:EnableMouse(true)
 		pips[index] = pip
 	end
-	pip:Show()
 	return pip
 end
 
@@ -54,19 +53,22 @@ function CurrencyBar.Create(parent)
 	return bar
 end
 
--- Temporary, for /folio debug -- not part of the public module surface.
-function CurrencyBar.DebugGetBar()
-	return bar
-end
-
 -- entries: gold first (if present), then pinned currencies -- CUR3, the
 -- unified entry model means both render through the same code path.
+--
+-- Stops adding pips once the next one would overflow the bar's width
+-- rather than letting the row run on past the frame's edge -- the bar
+-- never grows to fit its content, so unbounded layout was rendering
+-- currencies outside the visible window entirely once more than a
+-- couple were pinned.
 function CurrencyBar.SetEntries(entries)
+	local width = bar:GetWidth()
 	local x = 0
-	for i, entry in ipairs(entries) do
-		local pip = AcquirePip(i)
-		pip:ClearAllPoints()
-		pip:SetPoint("LEFT", bar, "LEFT", x, 0)
+	local shown = 0
+
+	for _, entry in ipairs(entries) do
+		shown = shown + 1
+		local pip = AcquirePip(shown)
 
 		if entry.kind == "money" then
 			pip.icon:SetTexture(GOLD_ICON)
@@ -75,14 +77,21 @@ function CurrencyBar.SetEntries(entries)
 			pip.icon:SetTexture(entry.icon or FALLBACK_ICON)
 			pip.text:SetText(tostring(entry.quantity or 0))
 		end
-
 		pip:SetWidth(ICON_SIZE + 4 + pip.text:GetStringWidth())
-		SetPipTooltip(pip, entry)
 
+		if shown > 1 and x + pip:GetWidth() > width then
+			shown = shown - 1
+			break
+		end
+
+		pip:ClearAllPoints()
+		pip:SetPoint("LEFT", bar, "LEFT", x, 0)
+		SetPipTooltip(pip, entry)
+		pip:Show()
 		x = x + pip:GetWidth() + 12
 	end
 
-	for i = #entries + 1, #pips do
+	for i = shown + 1, #pips do
 		pips[i]:Hide()
 	end
 end

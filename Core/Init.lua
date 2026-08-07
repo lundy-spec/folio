@@ -63,25 +63,10 @@ local function DumpFixture()
 	print(("|cff33ff99Folio|r dumped %d items to SavedVariables (FOLIO_DB.dump)."):format(#items))
 end
 
--- Temporary diagnostic for the currency-bar visibility bug -- remove once
--- it's found.
-local function DebugCurrencyBar()
-	local f = _G.FolioFrame
-	local bar = Folio.UI.CurrencyBar.DebugGetBar()
-	print("|cff33ff99[folio debug]|r FolioFrame:", f, "shown:", f and f:IsShown(), "visible:", f and f:IsVisible())
-	print("|cff33ff99[folio debug]|r bar:", bar, "shown:", bar and bar:IsShown(), "visible:", bar and bar:IsVisible())
-	if bar then
-		print("|cff33ff99[folio debug]|r bar:GetParent() == FolioFrame:", bar:GetParent() == f)
-		print("|cff33ff99[folio debug]|r bar:GetParent():GetName():", bar:GetParent() and bar:GetParent():GetName())
-	end
-end
-
 SLASH_FOLIO1 = "/folio"
 SlashCmdList.FOLIO = function(msg)
 	if msg == "dump" then
 		DumpFixture()
-	elseif msg == "debug" then
-		DebugCurrencyBar()
 	else
 		Folio.UI.Frame.Toggle()
 	end
