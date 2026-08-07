@@ -115,32 +115,29 @@ local function CreateItemRow(parent, item, y)
 	return row
 end
 
-local function CreateSubgroupHeader(parent, categoryName, subName, y)
-	local header = CreateFrame("Frame", nil, parent)
-	header:SetHeight(ROW_HEIGHT)
-	header:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, -y)
-	header:SetPoint("RIGHT", parent, "RIGHT", -8, 0)
-
-	local text = header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-	text:SetPoint("LEFT")
-	text:SetText(subName)
-
-	subgroupHeaders[categoryName .. "/" .. subName] = { frame = header, category = categoryName, sub = subName }
-	return header
+-- Drop-target hit boxes are invisible frames spanning a whole block (header
+-- + every row under it), not just the thin header line — a drop anywhere
+-- over a category's contents should count as hitting that category. Never
+-- calls EnableMouse(true), so it doesn't intercept clicks/drags meant for
+-- the row buttons layered inside it.
+local function CreateHitBox(parent, startY, endY)
+	local box = CreateFrame("Frame", nil, parent)
+	box:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -startY)
+	box:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, -startY)
+	box:SetHeight(math.max(endY - startY, ROW_HEIGHT))
+	return box
 end
 
-local function CreateCategoryHeader(parent, name, y)
-	local header = CreateFrame("Frame", nil, parent)
-	header:SetHeight(ROW_HEIGHT)
-	header:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -y)
-	header:SetPoint("RIGHT", parent, "RIGHT", -8, 0)
+local function CreateSubgroupLabel(parent, subName, y)
+	local text = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+	text:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, -y)
+	text:SetText(subName)
+end
 
-	local text = header:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	text:SetPoint("LEFT")
+local function CreateCategoryLabel(parent, name, y)
+	local text = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	text:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -y)
 	text:SetText(name)
-
-	categoryHeaders[name] = header
-	return header
 end
 
 local function Build(parent)
@@ -156,19 +153,27 @@ local function Build(parent)
 
 	local y = 0
 	for _, catName in ipairs(order) do
-		CreateCategoryHeader(parent, catName, y)
+		local catStartY = y
+		CreateCategoryLabel(parent, catName, y)
 		y = y + ROW_HEIGHT
 		for _, subName in ipairs({ "Bags", "Bank" }) do
 			local rows = byCategory[catName][subName]
 			if rows then
-				CreateSubgroupHeader(parent, catName, subName, y)
+				local subStartY = y
+				CreateSubgroupLabel(parent, subName, y)
 				y = y + ROW_HEIGHT
 				for _, item in ipairs(rows) do
 					CreateItemRow(parent, item, y)
 					y = y + ROW_HEIGHT
 				end
+				subgroupHeaders[catName .. "/" .. subName] = {
+					frame = CreateHitBox(parent, subStartY, y),
+					category = catName,
+					sub = subName,
+				}
 			end
 		end
+		categoryHeaders[catName] = CreateHitBox(parent, catStartY, y)
 	end
 end
 
