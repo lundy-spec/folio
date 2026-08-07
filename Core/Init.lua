@@ -132,6 +132,19 @@ local function TryTransfer(itemRow, toStorage)
 end
 
 Folio.UI.Row.OnItemDragStop = function(itemRow, target)
+	-- TEMPORARY debug for the "item stayed on cursor after a successful
+	-- recategorize" report -- remove once the real cause is found.
+	print(
+		"|cff33ff99[folio debug]|r OnDragStop itemRow bag/slot/id:",
+		itemRow.itemBag,
+		itemRow.itemSlot,
+		itemRow.itemID,
+		"entryKind:",
+		itemRow.entryKind
+	)
+	local cursorType, cursorItemID = GetCursorInfo()
+	print("|cff33ff99[folio debug]|r cursor before place-back:", cursorType, cursorItemID)
+
 	local categoryID, toStorage = ResolveDropTarget(target)
 
 	-- Not dropped on any part of one of our own categories -- leave the
@@ -154,7 +167,10 @@ Folio.UI.Row.OnItemDragStop = function(itemRow, target)
 		-- No physical storage change requested (or dropped back into its
 		-- own storage) -- place the item back where it was, whether or
 		-- not its category changed.
+		print("|cff33ff99[folio debug]|r placing back into", itemRow.itemBag, itemRow.itemSlot)
 		Folio.API.PickupContainerItem(itemRow.itemBag, itemRow.itemSlot)
+		local afterType, afterItemID = GetCursorInfo()
+		print("|cff33ff99[folio debug]|r cursor after place-back:", afterType, afterItemID)
 	end
 
 	RefreshItems()
