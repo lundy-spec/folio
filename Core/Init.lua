@@ -63,6 +63,51 @@ Folio.UI.Row.OnHeaderClick = function(categoryID, subgroup)
 	RefreshItems()
 end
 
+-- Drag one category header onto another to reorder them -- siblings
+-- only for now, reordering across different parent categories isn't
+-- supported yet. No item is picked up for this (unlike item drags), so
+-- there's no native cursor feedback while dragging; the reorder just
+-- applies on drop.
+local reorderInProgress = false
+
+Folio.UI.Row.OnHeaderDragStop = function(headerRow, target)
+	if reorderInProgress then return end
+	if not target or target.entryKind ~= "header" or target.subgroup then return end
+	if target.categoryID == headerRow.categoryID then return end
+
+	local tree = Folio.Config.db.categories
+	local draggedNode = Folio.Tree.GetNode(tree, headerRow.categoryID)
+	local targetNode = Folio.Tree.GetNode(tree, target.categoryID)
+	if not draggedNode or not targetNode then return end
+
+	if draggedNode.parent ~= targetNode.parent then
+		print("|cff33ff99Folio|r can't reorder across different parent categories yet.")
+		return
+	end
+
+	local siblings = Folio.Tree.GetChildren(tree, draggedNode.parent)
+	local orderedIds = {}
+	for _, node in ipairs(siblings) do
+		if node.id ~= headerRow.categoryID then
+			table.insert(orderedIds, node.id)
+		end
+	end
+
+	local insertIndex = #orderedIds + 1
+	for i, id in ipairs(orderedIds) do
+		if id == target.categoryID then
+			insertIndex = i
+			break
+		end
+	end
+	table.insert(orderedIds, insertIndex, headerRow.categoryID)
+
+	reorderInProgress = true
+	Folio.Tree.ReorderChildren(tree, draggedNode.parent, orderedIds)
+	RefreshItems()
+	reorderInProgress = false
+end
+
 -- §4.3 (Q17's drop-target-decides model): drop on a bare category header
 -- recategorizes (R2: sticky manual override, no item movement); drop on
 -- a Bags/Bank/Warband sub-group within the SAME category transfers (S5);

@@ -7,7 +7,7 @@ local _, Folio = ...
 --
 -- One pooled shape renders both category headers and items (§12 step 12)
 -- rather than juggling two widget templates through the ScrollBox's
--- single element initializer — icon hidden and text styled differently
+-- single element initializer — icon/toggle hidden and swapped as needed
 -- per row.kind (see Logic/Render.lua for where that field comes from).
 
 local Row = {}
@@ -27,19 +27,26 @@ Row.OnHeaderClick = nil
 Row.OnItemDragStart = nil
 Row.OnItemDragStop = nil
 
+-- Set by Core/Init.lua. Category-header-to-category-header reordering --
+-- only fires for bare category headers (not Bags/Bank/Warband
+-- sub-groups, whose order is fixed per S2).
+Row.OnHeaderDragStart = nil
+Row.OnHeaderDragStop = nil
+
 local INDENT = 12
 local FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 local HEADER_COLOR = { 1, 0.82, 0 }
 local SUBGROUP_COLOR = { 0.8, 0.8, 0.8 }
+local PLUS_TEXTURE = "Interface\\Buttons\\UI-PlusButton-Up"
+local MINUS_TEXTURE = "Interface\\Buttons\\UI-MinusButton-Up"
 
 local function Build(row)
 	row.icon = row:CreateTexture(nil, "ARTWORK")
 	row.icon:SetSize(Row.HEIGHT - 4, Row.HEIGHT - 4)
 	row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
-	row.count = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	row.count:SetPoint("RIGHT", -4, 0)
-	row.count:SetJustifyH("RIGHT")
+	row.toggle = row:CreateTexture(nil, "ARTWORK")
+	row.toggle:SetSize(Row.HEIGHT - 6, Row.HEIGHT - 6)
 
 	row.name = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	row.name:SetJustifyH("LEFT")
@@ -60,19 +67,25 @@ local function Build(row)
 		end
 	end)
 
-	-- §4.3: drag an item onto a sub-group header to transfer it. Headers
-	-- share this same Build() but never actually start a drag themselves
-	-- (entryKind ~= "item" guard below).
+	-- §4.3: drag an item onto a category/sub-group header to recategorize
+	-- or transfer it. Drag a bare category header onto another to
+	-- reorder them (sub-group headers are excluded -- their order is
+	-- fixed per S2, a drag destination has to stay unambiguous).
 	row:RegisterForDrag("LeftButton")
 	row:SetScript("OnDragStart", function(self)
 		if self.entryKind == "item" and Row.OnItemDragStart then
 			Row.OnItemDragStart(self)
+		elseif self.entryKind == "header" and not self.subgroup and Row.OnHeaderDragStart then
+			Row.OnHeaderDragStart(self)
 		end
 	end)
 	row:SetScript("OnDragStop", function(self)
+		local foci = GetMouseFoci and GetMouseFoci()
+		local target = foci and foci[1]
 		if self.entryKind == "item" and Row.OnItemDragStop then
-			local foci = GetMouseFoci and GetMouseFoci()
-			Row.OnItemDragStop(self, foci and foci[1])
+			Row.OnItemDragStop(self, target)
+		elseif self.entryKind == "header" and not self.subgroup and Row.OnHeaderDragStop then
+			Row.OnHeaderDragStop(self, target)
 		end
 	end)
 
@@ -87,17 +100,20 @@ local function InitHeader(row, entry, indent)
 
 	row.icon:Hide()
 
+	row.toggle:Show()
+	row.toggle:ClearAllPoints()
+	row.toggle:SetPoint("LEFT", row, "LEFT", indent, 0)
+	row.toggle:SetTexture(entry.collapsed and PLUS_TEXTURE or MINUS_TEXTURE)
+
 	row.name:ClearAllPoints()
-	row.name:SetPoint("LEFT", row, "LEFT", indent, 0)
-	row.name:SetPoint("RIGHT", row.count, "LEFT", -4, 0)
-	row.name:SetText((entry.collapsed and "> " or "v ") .. entry.name)
+	row.name:SetPoint("LEFT", row.toggle, "RIGHT", 4, 0)
+	row.name:SetPoint("RIGHT", row, "RIGHT", -4, 0)
+	row.name:SetText(entry.name .. " (" .. entry.count .. ")")
 
 	-- §4.3 sub-group headers (Bags/Bank/Warband) read as a lighter,
 	-- secondary level under the gold category header.
 	local color = entry.subgroup and SUBGROUP_COLOR or HEADER_COLOR
 	row.name:SetTextColor(color[1], color[2], color[3])
-
-	row.count:SetText("(" .. entry.count .. ")")
 end
 
 local function InitItem(row, entry, indent)
@@ -111,6 +127,8 @@ local function InitItem(row, entry, indent)
 	row.itemStorage = entry.storage
 	row.itemCategoryID = entry.categoryID
 
+	row.toggle:Hide()
+
 	row.icon:Show()
 	row.icon:ClearAllPoints()
 	row.icon:SetPoint("LEFT", row, "LEFT", indent, 0)
@@ -118,8 +136,13 @@ local function InitItem(row, entry, indent)
 
 	row.name:ClearAllPoints()
 	row.name:SetPoint("LEFT", row.icon, "RIGHT", 4, 0)
-	row.name:SetPoint("RIGHT", row.count, "LEFT", -4, 0)
-	row.name:SetText(entry.name or ("Item " .. tostring(entry.itemID)))
+	row.name:SetPoint("RIGHT", row, "RIGHT", -4, 0)
+
+	local displayName = entry.name or ("Item " .. tostring(entry.itemID))
+	if (entry.count or 1) > 1 then
+		displayName = displayName .. " (" .. entry.count .. ")"
+	end
+	row.name:SetText(displayName)
 
 	local color = ITEM_QUALITY_COLORS[entry.quality or 1]
 	if color then
@@ -127,8 +150,6 @@ local function InitItem(row, entry, indent)
 	else
 		row.name:SetTextColor(1, 1, 1)
 	end
-
-	row.count:SetText((entry.count or 1) > 1 and tostring(entry.count) or "")
 end
 
 function Row.Initialize(row, entry)
