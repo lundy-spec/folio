@@ -23,12 +23,20 @@ local function SaveSize(f)
 	db.width, db.height = f:GetWidth(), f:GetHeight()
 end
 
+-- §6.3: fixed footer strip, pinned currencies only, above the resize grip.
+local function AddCurrencyBar(f)
+	local bar = Folio.UI.CurrencyBar.Create(f)
+	bar:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 12, 8)
+	bar:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -28, 8)
+	return bar
+end
+
 -- §12 step 9: real virtualized ListView, no categories yet (those land
 -- in step 12). Anchored TOPLEFT/BOTTOMRIGHT so it resizes with the frame.
-local function AddListView(f)
+local function AddListView(f, currencyBar)
 	local scrollBox, scrollBar = Folio.UI.ListView.Create(f)
 	scrollBox:SetPoint("TOPLEFT", 12, -56)
-	scrollBox:SetPoint("BOTTOMRIGHT", -28, 20)
+	scrollBox:SetPoint("BOTTOMRIGHT", currencyBar, "TOPRIGHT", 0, 4)
 	scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPRIGHT", 4, 0)
 	scrollBar:SetPoint("BOTTOMLEFT", scrollBox, "BOTTOMRIGHT", 4, 0)
 end
@@ -88,7 +96,8 @@ function Frame.Create()
 	end
 
 	AddResizeGrip(f, maxHeight)
-	AddListView(f)
+	local currencyBar = AddCurrencyBar(f)
+	AddListView(f, currencyBar)
 
 	-- §6: register with the UI panel system so Escape closes it like any
 	-- other Blizzard panel.

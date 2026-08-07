@@ -13,7 +13,9 @@ Logic/Tree.lua
 Logic/Rules.lua
 Data/Cache.lua
 Data/Scanner.lua
+Data/Currency.lua
 UI/Row.lua
 UI/ListView.lua
+UI/CurrencyBar.lua
 UI/Frame.lua
 Core/Init.lua

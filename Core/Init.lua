@@ -9,10 +9,32 @@ local function RefreshItems()
 	Folio.UI.ListView.SetItems(items)
 end
 
+-- CUR8: one-time seed from the user's existing Blizzard backpack-tracked
+-- currencies, so most users never need the (not-yet-built) Options picker.
+local function SeedCurrenciesIfNeeded()
+	if Folio.Config.db.seededCurrencies then return end
+	local ids = Folio.Data.Currency.SeedFromBackpack(Folio.API)
+	for _, id in ipairs(ids) do
+		table.insert(Folio.Config.db.pinnedCurrencies, id)
+	end
+	Folio.Config.db.seededCurrencies = true
+end
+
+local function RefreshCurrencies()
+	local entries = { Folio.Data.Currency.GetGoldEntry(Folio.API) }
+	local pinned = Folio.Data.Currency.ScanPinned(Folio.API, Folio.Config.db.pinnedCurrencies)
+	for _, entry in ipairs(pinned) do
+		table.insert(entries, entry)
+	end
+	Folio.UI.CurrencyBar.SetEntries(entries)
+end
+
 local bootstrap = CreateFrame("Frame")
 bootstrap:RegisterEvent("ADDON_LOADED")
 bootstrap:RegisterEvent("PLAYER_LOGIN")
 bootstrap:RegisterEvent("BAG_UPDATE_DELAYED")
+bootstrap:RegisterEvent("PLAYER_MONEY")
+bootstrap:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
 bootstrap:SetScript("OnEvent", function(self, event, loadedAddon)
 	if event == "ADDON_LOADED" then
 		if loadedAddon ~= ADDON_NAME then return end
@@ -22,10 +44,14 @@ bootstrap:SetScript("OnEvent", function(self, event, loadedAddon)
 		-- Pre-create the frame at login, not reactively later, to sidestep
 		-- 12.0's in-combat/in-instance frame-creation restrictions (§3).
 		Folio.UI.Frame.Create()
+		SeedCurrenciesIfNeeded()
 		RefreshItems()
+		RefreshCurrencies()
 		print("|cff33ff99Folio|r loaded — type /folio to toggle the window")
 	elseif event == "BAG_UPDATE_DELAYED" then
 		RefreshItems()
+	elseif event == "PLAYER_MONEY" or event == "CURRENCY_DISPLAY_UPDATE" then
+		RefreshCurrencies()
 	end
 end)
 

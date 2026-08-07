@@ -12,11 +12,17 @@ local defaults = {
 		x = -40,
 		y = 0,
 	},
+	pinnedCurrencies = {},
+	seededCurrencies = false,
 }
 
 function Config.Init()
 	FOLIO_DB = FOLIO_DB or {}
 	FOLIO_DB.frame = FOLIO_DB.frame or CopyTable(defaults.frame)
+	FOLIO_DB.pinnedCurrencies = FOLIO_DB.pinnedCurrencies or CopyTable(defaults.pinnedCurrencies)
+	if FOLIO_DB.seededCurrencies == nil then
+		FOLIO_DB.seededCurrencies = defaults.seededCurrencies
+	end
 	Config.db = FOLIO_DB
 end
 

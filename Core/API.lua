@@ -35,4 +35,21 @@ function API.GetItemLevel(itemLink)
 	return C_Item.GetDetailedItemLevelInfo(itemLink)
 end
 
+function API.GetMoney()
+	return GetMoney()
+end
+
+function API.GetMoneyString(money)
+	return GetMoneyString(money, true)
+end
+
+-- CUR8: the user's existing Blizzard backpack-tracked currencies.
+function API.GetBackpackCurrencyInfo(index)
+	return C_CurrencyInfo.GetBackpackCurrencyInfo(index)
+end
+
+function API.GetCurrencyInfo(currencyID)
+	return C_CurrencyInfo.GetCurrencyInfo(currencyID)
+end
+
 return API
