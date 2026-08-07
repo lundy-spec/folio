@@ -195,4 +195,13 @@ function Tree.Walk(tree, parentId, fn, depth)
 	end
 end
 
+-- Dual-mode footer: under WoW's TOC loader, `...` is (ADDON_NAME, addonTable)
+-- and a return value is discarded, so this is the only way callers in other
+-- files can reach this module. Under busted's require(), `...` is just the
+-- module name string, so Folio is nil here and this is a no-op.
+local _, Folio = ...
+if type(Folio) == "table" then
+	Folio.Tree = Tree
+end
+
 return Tree

@@ -16,7 +16,20 @@ bootstrap:SetScript("OnEvent", function(self, event, loadedAddon)
 	end
 end)
 
+-- T4: serializes the current scan to SavedVariables so it can be captured
+-- as a real test fixture (Tests/fixtures/) rather than a synthetic one.
+local function DumpFixture()
+	local items = Folio.Data.Scanner.ScanBags(Folio.API, Folio.API.GetBagIDs())
+	Folio.Data.Cache.SetItems(items)
+	FOLIO_DB.dump = { items = items, timestamp = time() }
+	print(("|cff33ff99Folio|r dumped %d items to SavedVariables (FOLIO_DB.dump)."):format(#items))
+end
+
 SLASH_FOLIO1 = "/folio"
-SlashCmdList.FOLIO = function()
-	Folio.UI.Frame.Toggle()
+SlashCmdList.FOLIO = function(msg)
+	if msg == "dump" then
+		DumpFixture()
+	else
+		Folio.UI.Frame.Toggle()
+	end
 end
