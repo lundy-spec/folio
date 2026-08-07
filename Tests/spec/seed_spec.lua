@@ -39,6 +39,13 @@ describe("Logic.Seed", function()
 			assert.is_true(uncategorized.rules == nil or #uncategorized.rules == 0)
 		end)
 
+		it("starts every category collapsed (UI11)", function()
+			local tree = Seed.BuildDefaultTree()
+			for id in pairs(tree.nodes) do
+				assert.is_true(Tree.GetNode(tree, id).collapsed, id .. " should start collapsed")
+			end
+		end)
+
 		it("matches items by the documented itemClass on each rule-bearing category", function()
 			local tree = Seed.BuildDefaultTree()
 			assert.is_true(Rules.Matches({ itemClass = 0 }, Tree.GetNode(tree, "consumables").rules))

@@ -115,6 +115,21 @@ local function DumpFixture()
 	print(("|cff33ff99Folio|r dumped %d items to SavedVariables (FOLIO_DB.dump)."):format(#items))
 end
 
+-- UI8: collapse-all/expand-all. Promoted to a primary control per the
+-- PRD, but there's no search-bar-adjacent button built yet, so a slash
+-- command stands in for now. Also touches every sub-group's collapse
+-- state, not just each category's own.
+local function SetAllCollapsed(collapsed)
+	local tree = Folio.Config.db.categories
+	for _, node in pairs(tree.nodes) do
+		node.collapsed = collapsed
+		for storage in pairs(node.subCollapsed) do
+			node.subCollapsed[storage] = collapsed
+		end
+	end
+	RefreshItems()
+end
+
 -- F8: no Options panel yet to flip this from, so a slash command in the
 -- meantime.
 local function ToggleBagReplacement()
@@ -134,6 +149,10 @@ SlashCmdList.FOLIO = function(msg)
 		DumpFixture()
 	elseif msg == "bagreplace" then
 		ToggleBagReplacement()
+	elseif msg == "collapseall" then
+		SetAllCollapsed(true)
+	elseif msg == "expandall" then
+		SetAllCollapsed(false)
 	else
 		Folio.UI.Frame.Toggle()
 	end

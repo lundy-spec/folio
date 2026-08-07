@@ -31,40 +31,49 @@ local Seed = {}
 function Seed.BuildDefaultTree()
 	local tree = Tree.New()
 
+	-- UI11: default new categories to collapsed -- a freshly auto-seeded
+	-- taxonomy that opens fully expanded produces the exact height-budget
+	-- wall §6.2 has no multi-column escape from.
 	Tree.AddNode(tree, "consumables", {
 		name = "Consumables",
+		collapsed = true,
 		rules = { { field = "itemClass", op = "eq", value = ITEM_CLASS.CONSUMABLE } },
 	})
 	Tree.AddNode(tree, "tradegoods", {
 		name = "Trade Goods",
+		collapsed = true,
 		rules = { { field = "itemClass", op = "eq", value = ITEM_CLASS.TRADEGOODS } },
 	})
 	Tree.AddNode(tree, "questitems", {
 		name = "Quest Items",
+		collapsed = true,
 		rules = { { field = "itemClass", op = "eq", value = ITEM_CLASS.QUESTITEM } },
 	})
 
-	Tree.AddNode(tree, "equipment", { name = "Equipment" })
+	Tree.AddNode(tree, "equipment", { name = "Equipment", collapsed = true })
 	Tree.AddNode(tree, "weapons", {
 		name = "Weapons",
 		parent = "equipment",
+		collapsed = true,
 		rules = { { field = "itemClass", op = "eq", value = ITEM_CLASS.WEAPON } },
 	})
 	Tree.AddNode(tree, "armor", {
 		name = "Armor",
 		parent = "equipment",
+		collapsed = true,
 		rules = { { field = "itemClass", op = "eq", value = ITEM_CLASS.ARMOR } },
 	})
 
 	Tree.AddNode(tree, "junk", {
 		name = "Junk",
+		collapsed = true,
 		rules = { { field = "itemClass", op = "eq", value = ITEM_CLASS.MISCELLANEOUS } },
 	})
 
 	-- Manual-only fallback: no rules, so it never auto-matches (Rules.lua
 	-- treats an empty rule list as never-match) -- it only ever holds
 	-- items nothing else claimed, once manual assignment lands.
-	Tree.AddNode(tree, "uncategorized", { name = "Uncategorized" })
+	Tree.AddNode(tree, "uncategorized", { name = "Uncategorized", collapsed = true })
 
 	return tree
 end
