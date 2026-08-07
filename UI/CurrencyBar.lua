@@ -62,6 +62,10 @@ end
 -- currencies outside the visible window entirely once more than a
 -- couple were pinned.
 function CurrencyBar.SetEntries(entries)
+	-- PLAYER_MONEY/CURRENCY_DISPLAY_UPDATE can fire before PLAYER_LOGIN
+	-- has run Frame.Create() (and so Create() below) -- nothing to update
+	-- yet; PLAYER_LOGIN's own refresh call will populate it once it exists.
+	if not bar then return end
 	local width = bar:GetWidth()
 	local x = 0
 	local shown = 0

@@ -28,6 +28,10 @@ function ListView.Create(parent)
 end
 
 function ListView.SetItems(items)
+	-- BAG_UPDATE_DELAYED can in principle fire before PLAYER_LOGIN has run
+	-- Frame.Create() (and so Create() below) -- same latent bug class as
+	-- CurrencyBar.SetEntries; nothing to update yet.
+	if not view then return end
 	local provider = CreateDataProvider()
 	if #items > 0 then
 		provider:InsertTable(items)
