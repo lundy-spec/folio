@@ -103,6 +103,92 @@ local function StopHeaderReorderTracking(row)
 	return position
 end
 
+-- Highlights whatever row is currently a valid drop target while
+-- dragging an item -- a header (category or sub-group) or another item
+-- row, which ResolveDropTarget (Core/Init.lua) treats as a proxy for its
+-- own category/sub-group, same full-block-counts-as-a-hit rule as the
+-- hit-testing itself. Shared across all rows -- only one item drag
+-- happens at a time.
+local dropHighlight
+
+local function GetDropHighlight(parent)
+	if not dropHighlight then
+		dropHighlight = parent:CreateTexture(nil, "BACKGROUND")
+		dropHighlight:SetColorTexture(HEADER_COLOR[1], HEADER_COLOR[2], HEADER_COLOR[3], 0.25)
+		dropHighlight:Hide()
+	end
+	return dropHighlight
+end
+
+local function IsValidItemDropTarget(target)
+	if not target then return false end
+	if target.entryKind == "header" and target.categoryID then return true end
+	if target.entryKind == "item" and target.itemCategoryID then return true end
+	return false
+end
+
+-- WoW's native cursor-follows-item only shows the bare icon (that's
+-- just what PickupContainerItem gives you) -- this ghost shows the full
+-- row (icon + name) instead, so it's clear what's actually being moved.
+local dragGhost
+
+local function GetDragGhost(parent)
+	if not dragGhost then
+		dragGhost = CreateFrame("Frame", nil, parent)
+		dragGhost:SetFrameStrata("TOOLTIP")
+
+		dragGhost.icon = dragGhost:CreateTexture(nil, "ARTWORK")
+		dragGhost.icon:SetSize(Row.HEIGHT - 4, Row.HEIGHT - 4)
+		dragGhost.icon:SetPoint("LEFT")
+
+		dragGhost.name = dragGhost:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		dragGhost.name:SetPoint("LEFT", dragGhost.icon, "RIGHT", 4, 0)
+		dragGhost.name:SetJustifyH("LEFT")
+
+		dragGhost:Hide()
+	end
+	return dragGhost
+end
+
+local function StartItemDropTracking(row)
+	local ghost = GetDragGhost(row:GetParent())
+	ghost:SetSize(row:GetWidth(), Row.HEIGHT)
+	ghost.icon:SetTexture(row.icon:GetTexture())
+	ghost.name:SetText(row.name:GetText())
+	ghost.name:SetTextColor(row.name:GetTextColor())
+	ghost:Show()
+
+	row:SetScript("OnUpdate", function(self)
+		local x, y = GetCursorPosition()
+		local scale = UIParent:GetEffectiveScale()
+		ghost:ClearAllPoints()
+		ghost:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x / scale + 16, y / scale)
+
+		local foci = GetMouseFoci and GetMouseFoci()
+		local target = foci and foci[1]
+		local highlight = GetDropHighlight(self:GetParent())
+
+		if IsValidItemDropTarget(target) then
+			highlight:ClearAllPoints()
+			highlight:SetPoint("TOPLEFT", target, "TOPLEFT", 0, 0)
+			highlight:SetPoint("BOTTOMRIGHT", target, "BOTTOMRIGHT", 0, 0)
+			highlight:Show()
+		else
+			highlight:Hide()
+		end
+	end)
+end
+
+local function StopItemDropTracking(row)
+	row:SetScript("OnUpdate", nil)
+	if dropHighlight then
+		dropHighlight:Hide()
+	end
+	if dragGhost then
+		dragGhost:Hide()
+	end
+end
+
 local function Build(row)
 	row.icon = row:CreateTexture(nil, "ARTWORK")
 	row.icon:SetSize(Row.HEIGHT - 4, Row.HEIGHT - 4)
@@ -138,6 +224,7 @@ local function Build(row)
 	row:SetScript("OnDragStart", function(self)
 		if self.entryKind == "item" and Row.OnItemDragStart then
 			Row.OnItemDragStart(self)
+			StartItemDropTracking(self)
 		elseif self.entryKind == "header" and not self.subgroup then
 			StartHeaderReorderTracking(self)
 		end
@@ -146,6 +233,7 @@ local function Build(row)
 		local foci = GetMouseFoci and GetMouseFoci()
 		local target = foci and foci[1]
 		if self.entryKind == "item" and Row.OnItemDragStop then
+			StopItemDropTracking(self)
 			Row.OnItemDragStop(self, target)
 		elseif self.entryKind == "header" and not self.subgroup then
 			local dropPosition = StopHeaderReorderTracking(self)
