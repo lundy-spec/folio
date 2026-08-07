@@ -29,6 +29,9 @@ SLASH_FOLIO1 = "/folio"
 SlashCmdList.FOLIO = function(msg)
 	if msg == "dump" then
 		DumpFixture()
+	elseif msg == "dragtest" then
+		-- §12 step 8: throwaway spike for the Q17 gesture-model decision.
+		Folio.UI.DragPrototype.Toggle()
 	else
 		Folio.UI.Frame.Toggle()
 	end
