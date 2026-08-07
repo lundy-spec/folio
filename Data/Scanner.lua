@@ -16,6 +16,7 @@ function Scanner.ScanBags(api, bagIDs)
 					itemID = info.itemID,
 					itemLink = info.hyperlink,
 					name = info.itemName,
+					icon = info.iconFileID,
 					count = info.stackCount,
 					quality = info.quality,
 					ilvl = api.GetItemLevel(info.hyperlink),

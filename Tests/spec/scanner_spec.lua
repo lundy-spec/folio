@@ -4,10 +4,10 @@ describe("Data.Scanner", function()
 	it("normalizes every occupied slot across the given bags", function()
 		local slots = {
 			[0] = {
-				[1] = { itemID = 111, hyperlink = "item:111", itemName = "Healing Potion", stackCount = 5, quality = 1, isBound = false },
+				[1] = { itemID = 111, hyperlink = "item:111", itemName = "Healing Potion", iconFileID = 1001, stackCount = 5, quality = 1, isBound = false },
 			},
 			[1] = {
-				[1] = { itemID = 222, hyperlink = "item:222", itemName = "Flask", stackCount = 1, quality = 3, isBound = true },
+				[1] = { itemID = 222, hyperlink = "item:222", itemName = "Flask", iconFileID = 1002, stackCount = 1, quality = 3, isBound = true },
 			},
 		}
 		local fakeApi = {
@@ -29,10 +29,12 @@ describe("Data.Scanner", function()
 		assert.are.equal(5, items[1].count)
 		assert.are.equal(0, items[1].bag)
 		assert.are.equal(1, items[1].slot)
+		assert.are.equal(1001, items[1].icon)
 		assert.is_nil(items[1].ilvl)
 		assert.is_false(items[1].bound)
 
 		assert.are.equal(222, items[2].itemID)
+		assert.are.equal(1002, items[2].icon)
 		assert.are.equal(610, items[2].ilvl)
 		assert.is_true(items[2].bound)
 	end)

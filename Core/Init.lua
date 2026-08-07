@@ -1,8 +1,18 @@
 local ADDON_NAME, Folio = ...
 
+-- Full rescan on every bag change — no diffing yet (architecture principle
+-- 3 wants incremental diffs eventually; this spike proves the virtualized
+-- list works with real data first).
+local function RefreshItems()
+	local items = Folio.Data.Scanner.ScanBags(Folio.API, Folio.API.GetBagIDs())
+	Folio.Data.Cache.SetItems(items)
+	Folio.UI.ListView.SetItems(items)
+end
+
 local bootstrap = CreateFrame("Frame")
 bootstrap:RegisterEvent("ADDON_LOADED")
 bootstrap:RegisterEvent("PLAYER_LOGIN")
+bootstrap:RegisterEvent("BAG_UPDATE_DELAYED")
 bootstrap:SetScript("OnEvent", function(self, event, loadedAddon)
 	if event == "ADDON_LOADED" then
 		if loadedAddon ~= ADDON_NAME then return end
@@ -12,15 +22,17 @@ bootstrap:SetScript("OnEvent", function(self, event, loadedAddon)
 		-- Pre-create the frame at login, not reactively later, to sidestep
 		-- 12.0's in-combat/in-instance frame-creation restrictions (§3).
 		Folio.UI.Frame.Create()
+		RefreshItems()
 		print("|cff33ff99Folio|r loaded — type /folio to toggle the window")
+	elseif event == "BAG_UPDATE_DELAYED" then
+		RefreshItems()
 	end
 end)
 
 -- T4: serializes the current scan to SavedVariables so it can be captured
 -- as a real test fixture (Tests/fixtures/) rather than a synthetic one.
 local function DumpFixture()
-	local items = Folio.Data.Scanner.ScanBags(Folio.API, Folio.API.GetBagIDs())
-	Folio.Data.Cache.SetItems(items)
+	local items = Folio.Data.Cache.GetItems()
 	FOLIO_DB.dump = { items = items, timestamp = time() }
 	print(("|cff33ff99Folio|r dumped %d items to SavedVariables (FOLIO_DB.dump)."):format(#items))
 end

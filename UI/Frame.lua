@@ -23,28 +23,14 @@ local function SaveSize(f)
 	db.width, db.height = f:GetWidth(), f:GetHeight()
 end
 
--- Placeholder rows only — real virtualized ListView lands in a later spike
--- (§12 step 9). This step is purely about proportions, anchoring, and resize
--- feel per §6.2's "build the frame shell and look at it."
-local function AddPlaceholderRows(f)
-	local rows = {
-		"Consumables (12)",
-		"  Flask of Alchemical Chaos  5",
-		"  Healing Potion  20",
-		"Crafting (31)",
-		"Uncategorized (47)",
-	}
-	local prev
-	for _, text in ipairs(rows) do
-		local row = f:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-		if prev then
-			row:SetPoint("TOPLEFT", prev, "BOTTOMLEFT", 0, -4)
-		else
-			row:SetPoint("TOPLEFT", 14, -64)
-		end
-		row:SetText(text)
-		prev = row
-	end
+-- §12 step 9: real virtualized ListView, no categories yet (those land
+-- in step 12). Anchored TOPLEFT/BOTTOMRIGHT so it resizes with the frame.
+local function AddListView(f)
+	local scrollBox, scrollBar = Folio.UI.ListView.Create(f)
+	scrollBox:SetPoint("TOPLEFT", 12, -56)
+	scrollBox:SetPoint("BOTTOMRIGHT", -28, 20)
+	scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPRIGHT", 4, 0)
+	scrollBar:SetPoint("BOTTOMLEFT", scrollBox, "BOTTOMRIGHT", 4, 0)
 end
 
 local function AddResizeGrip(f, maxHeight)
@@ -102,7 +88,7 @@ function Frame.Create()
 	end
 
 	AddResizeGrip(f, maxHeight)
-	AddPlaceholderRows(f)
+	AddListView(f)
 
 	-- §6: register with the UI panel system so Escape closes it like any
 	-- other Blizzard panel.

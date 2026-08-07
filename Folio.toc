@@ -12,5 +12,7 @@ Core/API.lua
 Logic/Tree.lua
 Data/Cache.lua
 Data/Scanner.lua
-Core/Init.lua
+UI/Row.lua
+UI/ListView.lua
 UI/Frame.lua
+Core/Init.lua
