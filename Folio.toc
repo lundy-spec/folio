@@ -1,4 +1,4 @@
-## Interface: 120100
+## Interface: 120007, 120100
 ## Title: Folio
 ## Notes: A nested-category, Blizzard-native list view for your WoW inventory.
 ## Author: Lundy Hartshorn
