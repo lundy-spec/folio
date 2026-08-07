@@ -85,6 +85,27 @@ Folio.UI.Row.OnItemDragStart = function(itemRow)
 end
 
 Folio.UI.Row.OnItemDragStop = function(itemRow, target)
+	-- TEMPORARY debug for the drop-target-not-detected report -- remove
+	-- once the real cause is found.
+	print(
+		"|cff33ff99[folio debug]|r target:",
+		target,
+		target and target.GetName and target:GetName(),
+		"entryKind:",
+		target and target.entryKind,
+		"subgroup:",
+		target and target.subgroup
+	)
+	local foci = GetMouseFoci and GetMouseFoci()
+	if foci then
+		print("|cff33ff99[folio debug]|r foci count:", #foci)
+		for i, f in ipairs(foci) do
+			print("|cff33ff99[folio debug]|r  foci[" .. i .. "]:", f, f.GetName and f:GetName())
+		end
+	else
+		print("|cff33ff99[folio debug]|r GetMouseFoci returned nothing")
+	end
+
 	-- Not dropped on one of our own sub-group headers -- leave the item
 	-- on the cursor exactly as native WoW does on an invalid drop; the
 	-- player can still click any real bag/bank slot to place it, or
