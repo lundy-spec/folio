@@ -65,12 +65,12 @@ end
 
 -- Drag one category header onto another to reorder them -- siblings
 -- only for now, reordering across different parent categories isn't
--- supported yet. No item is picked up for this (unlike item drags), so
--- there's no native cursor feedback while dragging; the reorder just
--- applies on drop.
+-- supported yet. dropPosition ("before"/"after", from Row.lua's
+-- cursor-half tracking that drives the insertion-line indicator) picks
+-- which side of the target the dragged category lands on.
 local reorderInProgress = false
 
-Folio.UI.Row.OnHeaderDragStop = function(headerRow, target)
+Folio.UI.Row.OnHeaderDragStop = function(headerRow, target, dropPosition)
 	if reorderInProgress then return end
 	if not target or target.entryKind ~= "header" or target.subgroup then return end
 	if target.categoryID == headerRow.categoryID then return end
@@ -96,7 +96,7 @@ Folio.UI.Row.OnHeaderDragStop = function(headerRow, target)
 	local insertIndex = #orderedIds + 1
 	for i, id in ipairs(orderedIds) do
 		if id == target.categoryID then
-			insertIndex = i
+			insertIndex = (dropPosition == "after") and (i + 1) or i
 			break
 		end
 	end

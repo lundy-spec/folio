@@ -29,8 +29,9 @@ Row.OnItemDragStop = nil
 
 -- Set by Core/Init.lua. Category-header-to-category-header reordering --
 -- only fires for bare category headers (not Bags/Bank/Warband
--- sub-groups, whose order is fixed per S2).
-Row.OnHeaderDragStart = nil
+-- sub-groups, whose order is fixed per S2). dropPosition is "before" or
+-- "after" the target, based on which half of the target row the cursor
+-- was over when released -- see the drag-tracking below.
 Row.OnHeaderDragStop = nil
 
 local INDENT = 12
@@ -39,6 +40,68 @@ local HEADER_COLOR = { 1, 0.82, 0 }
 local SUBGROUP_COLOR = { 0.8, 0.8, 0.8 }
 local PLUS_TEXTURE = "Interface\\Buttons\\UI-PlusButton-Up"
 local MINUS_TEXTURE = "Interface\\Buttons\\UI-MinusButton-Up"
+
+-- Shared across all rows -- only one header drag happens at a time.
+local dropIndicator
+
+local function GetDropIndicator(parent)
+	if not dropIndicator then
+		dropIndicator = parent:CreateTexture(nil, "OVERLAY")
+		dropIndicator:SetColorTexture(HEADER_COLOR[1], HEADER_COLOR[2], HEADER_COLOR[3], 0.9)
+		dropIndicator:SetHeight(2)
+		dropIndicator:Hide()
+	end
+	return dropIndicator
+end
+
+-- "before" if the cursor is over the target's upper half, "after" if the
+-- lower half -- the standard list-reorder convention.
+local function DropPositionRelativeTo(targetRow)
+	local _, cursorY = GetCursorPosition()
+	local scale = targetRow:GetEffectiveScale()
+	if not scale or scale == 0 then return "before" end
+	cursorY = cursorY / scale
+	local top, bottom = targetRow:GetTop(), targetRow:GetBottom()
+	if not top or not bottom then return "before" end
+	return cursorY > (top + bottom) / 2 and "before" or "after"
+end
+
+local function StartHeaderReorderTracking(row)
+	row.dropPosition = nil
+	row:SetScript("OnUpdate", function(self)
+		local foci = GetMouseFoci and GetMouseFoci()
+		local target = foci and foci[1]
+		local indicator = GetDropIndicator(self:GetParent())
+
+		if target and target.entryKind == "header" and not target.subgroup and target ~= self then
+			local position = DropPositionRelativeTo(target)
+			self.dropPosition = position
+			indicator:ClearAllPoints()
+			if position == "before" then
+				indicator:SetPoint("BOTTOMLEFT", target, "TOPLEFT", 0, -1)
+				indicator:SetPoint("BOTTOMRIGHT", target, "TOPRIGHT", 0, -1)
+			else
+				indicator:SetPoint("TOPLEFT", target, "BOTTOMLEFT", 0, 1)
+				indicator:SetPoint("TOPRIGHT", target, "BOTTOMRIGHT", 0, 1)
+			end
+			indicator:Show()
+		else
+			self.dropPosition = nil
+			indicator:Hide()
+		end
+	end)
+end
+
+-- Returns the last tracked drop position and tears down the indicator.
+local function StopHeaderReorderTracking(row)
+	row:SetScript("OnUpdate", nil)
+	if dropIndicator then
+		dropIndicator:Hide()
+	end
+	local position = row.dropPosition
+	row.dropPosition = nil
+	return position
+end
 
 local function Build(row)
 	row.icon = row:CreateTexture(nil, "ARTWORK")
@@ -75,8 +138,8 @@ local function Build(row)
 	row:SetScript("OnDragStart", function(self)
 		if self.entryKind == "item" and Row.OnItemDragStart then
 			Row.OnItemDragStart(self)
-		elseif self.entryKind == "header" and not self.subgroup and Row.OnHeaderDragStart then
-			Row.OnHeaderDragStart(self)
+		elseif self.entryKind == "header" and not self.subgroup then
+			StartHeaderReorderTracking(self)
 		end
 	end)
 	row:SetScript("OnDragStop", function(self)
@@ -84,8 +147,11 @@ local function Build(row)
 		local target = foci and foci[1]
 		if self.entryKind == "item" and Row.OnItemDragStop then
 			Row.OnItemDragStop(self, target)
-		elseif self.entryKind == "header" and not self.subgroup and Row.OnHeaderDragStop then
-			Row.OnHeaderDragStop(self, target)
+		elseif self.entryKind == "header" and not self.subgroup then
+			local dropPosition = StopHeaderReorderTracking(self)
+			if Row.OnHeaderDragStop then
+				Row.OnHeaderDragStop(self, target, dropPosition)
+			end
 		end
 	end)
 
