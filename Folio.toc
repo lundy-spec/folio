@@ -1,0 +1,10 @@
+## Interface: 120100
+## Title: Folio
+## Notes: A nested-category, Blizzard-native list view for your WoW inventory.
+## Author: Lundy Hartshorn
+## Version: 0.0.1
+## SavedVariables: FOLIO_DB
+## X-License: CC0-1.0
+## X-Curse-Project-ID: TODO
+
+Core/Init.lua

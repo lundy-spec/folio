@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+jobs:
+  lint:
+    name: Lint Logic/ for WoW globals
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Forbid WoW globals in Logic/
+        run: |
+          if [ -d Logic ] && grep -RInE '\b(C_[A-Za-z]+|CreateFrame|GetTime|UnitGUID|_G)\b' Logic/; then
+            echo "::error::Logic/ must be pure Lua with zero WoW API references — see lines above."
+            exit 1
+          fi
+          echo "Logic/ is clean."
+
+  test:
+    name: busted specs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: leafo/gh-actions-lua@v10
+      - uses: leafo/gh-actions-luarocks@v4
+      - name: Install busted
+        run: luarocks install busted
+      - name: Run specs
+        run: |
+          if [ -d Tests/spec ] && [ -n "$(find Tests/spec -name '*_spec.lua')" ]; then
+            busted Tests/spec
+          else
+            echo "No specs yet — skipping."
+          fi
