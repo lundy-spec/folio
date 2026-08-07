@@ -21,6 +21,12 @@ Row.HEIGHT = 18
 -- without Row.lua needing to know about the tree/refresh machinery.
 Row.OnHeaderClick = nil
 
+-- Set by Core/Init.lua. OnItemDragStart(itemRow) fires on drag start;
+-- OnItemDragStop(itemRow, targetFrame) fires on release, targetFrame
+-- being whatever GetMouseFoci() found under the cursor (nil if nothing).
+Row.OnItemDragStart = nil
+Row.OnItemDragStop = nil
+
 local INDENT = 12
 local FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 local HEADER_COLOR = { 1, 0.82, 0 }
@@ -54,6 +60,22 @@ local function Build(row)
 		end
 	end)
 
+	-- §4.3: drag an item onto a sub-group header to transfer it. Headers
+	-- share this same Build() but never actually start a drag themselves
+	-- (entryKind ~= "item" guard below).
+	row:RegisterForDrag("LeftButton")
+	row:SetScript("OnDragStart", function(self)
+		if self.entryKind == "item" and Row.OnItemDragStart then
+			Row.OnItemDragStart(self)
+		end
+	end)
+	row:SetScript("OnDragStop", function(self)
+		if self.entryKind == "item" and Row.OnItemDragStop then
+			local foci = GetMouseFoci and GetMouseFoci()
+			Row.OnItemDragStop(self, foci and foci[1])
+		end
+	end)
+
 	row.built = true
 end
 
@@ -83,6 +105,10 @@ local function InitItem(row, entry, indent)
 	row.categoryID = nil
 	row.subgroup = nil
 	row.itemLink = entry.itemLink
+	row.itemBag = entry.bag
+	row.itemSlot = entry.slot
+	row.itemStorage = entry.storage
+	row.itemCategoryID = entry.categoryID
 
 	row.icon:Show()
 	row.icon:ClearAllPoints()

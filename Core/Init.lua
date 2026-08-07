@@ -22,12 +22,15 @@ local function ScanAllStorages()
 end
 
 -- groups[categoryID][storage] -> array of items, matching what
--- Logic/Render.lua expects.
+-- Logic/Render.lua expects. Also stamps categoryID onto each item itself
+-- (Scanner never sets it) so a dragged item row knows which category it
+-- currently belongs to -- see Row.OnItemDragStop below.
 local function GroupByCategory(tree, items)
 	local groups = {}
 	local resolved = Folio.Data.Assign.ResolveAll(tree, items)
 	for i, item in ipairs(items) do
 		local categoryID = resolved[i] or UNCATEGORIZED
+		item.categoryID = categoryID
 		groups[categoryID] = groups[categoryID] or {}
 		local storage = item.storage or "bags"
 		groups[categoryID][storage] = groups[categoryID][storage] or {}
@@ -57,6 +60,66 @@ Folio.UI.Row.OnHeaderClick = function(categoryID, subgroup)
 	else
 		node.collapsed = not node.collapsed
 	end
+	RefreshItems()
+end
+
+-- §4.3 S5, narrowed first pass: drag an item onto a Bags/Bank/Warband
+-- sub-group header WITHIN ITS OWN CATEGORY to transfer it. Cross-category
+-- transfer+recategorize, stack modifiers, and bulk queue/throttle are
+-- deliberate follow-ups -- see Logic/Transfer.lua's header.
+
+local function StorageBagIDs(storage)
+	if storage == "bank" then return Folio.API.GetCharacterBankTabIDs() end
+	if storage == "warband" then return Folio.API.GetWarbandBankTabIDs() end
+	return Folio.API.GetBagIDs()
+end
+
+local function BankTypeForStorage(storage)
+	if storage == "bank" then return Enum.BankType.Character end
+	if storage == "warband" then return Enum.BankType.Account end
+	return nil
+end
+
+Folio.UI.Row.OnItemDragStart = function(itemRow)
+	Folio.API.PickupContainerItem(itemRow.itemBag, itemRow.itemSlot)
+end
+
+Folio.UI.Row.OnItemDragStop = function(itemRow, target)
+	-- Not dropped on one of our own sub-group headers -- leave the item
+	-- on the cursor exactly as native WoW does on an invalid drop; the
+	-- player can still click any real bag/bank slot to place it, or
+	-- click the same slot again to cancel.
+	if not target or target.entryKind ~= "header" or not target.subgroup then
+		return
+	end
+
+	if target.categoryID ~= itemRow.itemCategoryID then
+		print("|cff33ff99Folio|r cross-category drag isn't supported yet -- item's still on your cursor, click a bag/bank slot to place it.")
+		return
+	end
+
+	local toStorage = target.subgroup
+	local bankType = BankTypeForStorage(toStorage)
+	local eligible = true
+	if bankType then
+		eligible = Folio.API.IsItemAllowedInBankType(itemRow.itemBag, itemRow.itemSlot, bankType)
+	end
+
+	local destBag, destSlot = Folio.API.FindEmptySlot(StorageBagIDs(toStorage))
+
+	local ok, reason = Folio.Transfer.Validate({
+		fromStorage = itemRow.itemStorage,
+		toStorage = toStorage,
+		eligible = eligible,
+		destinationBag = destBag,
+	})
+
+	if not ok then
+		print("|cff33ff99Folio|r can't move that there (" .. reason .. ") -- item's still on your cursor.")
+		return
+	end
+
+	Folio.API.PickupContainerItem(destBag, destSlot)
 	RefreshItems()
 end
 

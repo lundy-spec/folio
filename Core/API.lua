@@ -82,4 +82,39 @@ function API.GetWarbandBankTabIDs()
 	return GetPurchasedBankTabIDs(Enum.BankType.Account)
 end
 
+-- §4.3 S5: soulbound-vs-warbound eligibility via Blizzard's own check,
+-- rather than reimplementing binding rules from a raw isBound flag
+-- (which doesn't distinguish "never transferable" from "warbound, fine
+-- for the warband bank").
+function API.IsItemAllowedInBankType(bag, slot, bankType)
+	local location = ItemLocation:CreateFromBagAndSlot(bag, slot)
+	if not location or not location:IsValid() then return false end
+	return C_Bank.IsItemAllowedInBankType(bankType, location)
+end
+
+-- The traditional pickup/place mechanic every bag addon uses for
+-- drag-and-drop -- unlike C_Container.UseContainerItem (how right-click
+-- deposit works), this is NOT a protected function, so it's safe to call
+-- from ordinary addon code (verified against Blizzard's docs before
+-- relying on it here).
+function API.PickupContainerItem(bag, slot)
+	C_Container.PickupContainerItem(bag, slot)
+end
+
+-- First open slot across the given bagIDs, or nil if all are full.
+-- Deliberately never targets an occupied slot -- PickupContainerItem
+-- swaps into one rather than stacking, which would silently misplace
+-- whatever was already there.
+function API.FindEmptySlot(bagIDs)
+	for _, bag in ipairs(bagIDs) do
+		local numSlots = C_Container.GetContainerNumSlots(bag)
+		for slot = 1, numSlots do
+			if not C_Container.GetContainerItemInfo(bag, slot) then
+				return bag, slot
+			end
+		end
+	end
+	return nil
+end
+
 return API

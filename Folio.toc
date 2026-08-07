@@ -13,6 +13,7 @@ Logic/Tree.lua
 Logic/Rules.lua
 Logic/Seed.lua
 Logic/Render.lua
+Logic/Transfer.lua
 Data/Cache.lua
 Data/Scanner.lua
 Data/Currency.lua
