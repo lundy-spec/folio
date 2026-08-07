@@ -59,6 +59,13 @@ end
 -- Bags/Bank/Warband sub-group layout; F18's per-category storages table
 -- (already on every Tree node -- see Logic/Tree.lua) gates which
 -- sub-groups a category even considers.
+--
+-- Anything bucketed under a categoryID with no real tree node -- the
+-- fallback for items nothing's been manually sorted into yet, or an
+-- override pointing at a since-deleted category -- lists flat, with no
+-- header of its own, after every real category. No "Uncategorized"
+-- folder: it's just wherever the leftovers are, so there's always
+-- somewhere to see and grab an unsorted item without expanding anything.
 function Render.BuildRows(tree, itemsByCategory, bankerOpen)
 	local rows = {}
 
@@ -103,6 +110,25 @@ function Render.BuildRows(tree, itemsByCategory, bankerOpen)
 	end
 
 	walk(Tree.ROOT, 0)
+
+	-- Checked against the tree directly rather than tracked during the
+	-- walk above -- a collapsed category's children are never walked
+	-- into, which would otherwise wrongly count them as leftovers too.
+	local leftoverIDs = {}
+	for categoryID in pairs(itemsByCategory) do
+		if not Tree.GetNode(tree, categoryID) then
+			table.insert(leftoverIDs, categoryID)
+		end
+	end
+	table.sort(leftoverIDs) -- deterministic order
+
+	for _, categoryID in ipairs(leftoverIDs) do
+		local byStorage = itemsByCategory[categoryID]
+		for _, storage in ipairs(STORAGE_ORDER) do
+			AppendItemRows(rows, byStorage[storage] or {}, 0)
+		end
+	end
+
 	return rows
 end
 

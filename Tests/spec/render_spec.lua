@@ -203,4 +203,60 @@ describe("Logic.Render", function()
 			assert.are.equal("item", rows[3].kind)
 		end)
 	end)
+
+	describe("BuildRows leftover items (no matching tree node)", function()
+		it("lists them flat, with no header, after every real category", function()
+			Tree.AddNode(tree, "a", { name = "A" })
+			local groups = {
+				a = { bags = { { kind = "item", itemID = 1 } } },
+				uncategorized = { bags = { { kind = "item", itemID = 2 } } },
+			}
+			local rows = Render.BuildRows(tree, groups, false)
+
+			assert.are.equal(3, #rows)
+			assert.are.equal("header", rows[1].kind)
+			assert.are.equal("a", rows[1].categoryID)
+			assert.are.equal("item", rows[2].kind)
+			assert.are.equal(1, rows[2].itemID)
+			assert.are.equal("item", rows[3].kind)
+			assert.are.equal(2, rows[3].itemID)
+			assert.are.equal(0, rows[3].depth)
+			assert.is_nil(rows[3].categoryID)
+		end)
+
+		it("still lists leftovers even when the tree has no categories at all", function()
+			local groups = { uncategorized = { bags = { { kind = "item", itemID = 1 } } } }
+			local rows = Render.BuildRows(tree, groups, false)
+
+			assert.are.equal(1, #rows)
+			assert.are.equal("item", rows[1].kind)
+		end)
+
+		it("orders multiple leftover buckets deterministically by id", function()
+			local groups = {
+				zzz = { bags = { { kind = "item", itemID = 1 } } },
+				aaa = { bags = { { kind = "item", itemID = 2 } } },
+			}
+			local rows = Render.BuildRows(tree, groups, false)
+
+			assert.are.equal(2, #rows)
+			assert.are.equal(2, rows[1].itemID) -- "aaa" sorts before "zzz"
+			assert.are.equal(1, rows[2].itemID)
+		end)
+
+		it("flattens across all storages regardless of bankerOpen", function()
+			local groups = {
+				uncategorized = {
+					bags = { { kind = "item", itemID = 1 } },
+					bank = { { kind = "item", itemID = 2 } },
+				},
+			}
+			local rows = Render.BuildRows(tree, groups, true)
+
+			assert.are.equal(2, #rows)
+			assert.are.equal(1, rows[1].itemID)
+			assert.are.equal(2, rows[2].itemID)
+			assert.is_nil(rows[1].subgroup)
+		end)
+	end)
 end)

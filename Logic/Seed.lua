@@ -25,18 +25,15 @@ local STARTER_CATEGORIES = {
 	{ id = "junk", name = "Junk" },
 }
 
--- UI11: default new categories to collapsed.
+-- UI11: default new categories to collapsed. No "Uncategorized" node --
+-- anything not manually sorted just lists flat below the real
+-- categories (see Logic/Render.lua), not inside a folder of its own.
 function Seed.BuildDefaultTree()
 	local tree = Tree.New()
 
 	for _, category in ipairs(STARTER_CATEGORIES) do
 		Tree.AddNode(tree, category.id, { name = category.name, collapsed = true })
 	end
-
-	-- Everything nothing's been manually sorted into yet lands here --
-	-- no rules, so (like every other starter category) it never
-	-- auto-matches; it's just where unclaimed items are found by default.
-	Tree.AddNode(tree, "uncategorized", { name = "Uncategorized", collapsed = true })
 
 	return tree
 end

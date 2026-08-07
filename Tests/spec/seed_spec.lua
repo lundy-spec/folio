@@ -3,7 +3,7 @@ local Tree = require("Logic.Tree")
 
 describe("Logic.Seed", function()
 	describe("BuildDefaultTree", function()
-		it("creates the six flat starter categories plus Uncategorized", function()
+		it("creates the six flat starter categories, no Uncategorized node", function()
 			local tree = Seed.BuildDefaultTree()
 			local ids = {}
 			for _, node in ipairs(Tree.GetChildren(tree, Tree.ROOT)) do
@@ -17,7 +17,6 @@ describe("Logic.Seed", function()
 				"miscellaneous",
 				"questitems",
 				"tradegoods",
-				"uncategorized",
 			}, ids)
 		end)
 
