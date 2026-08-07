@@ -14,4 +14,3 @@ Data/Cache.lua
 Data/Scanner.lua
 Core/Init.lua
 UI/Frame.lua
-UI/DragPrototype.lua
