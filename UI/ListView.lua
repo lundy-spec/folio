@@ -1,8 +1,10 @@
 local _, Folio = ...
 
--- §12 step 9: virtualized list spike, no categories yet (those land in
--- step 12). Blizzard's WowScrollBoxList + MinimalScrollBar per §6.1 —
--- a 400-row list only instantiates the handful of rows actually visible.
+-- Blizzard's WowScrollBoxList + MinimalScrollBar per §6.1 — a 400-row
+-- list only instantiates the handful of rows actually visible. Renders
+-- whatever flattened row list Logic/Render.lua produces (category
+-- headers, sub-group headers, and items alike) via one shared row
+-- template — see UI/Row.lua.
 
 local ListView = {}
 Folio.UI = Folio.UI or {}

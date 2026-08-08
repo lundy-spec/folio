@@ -1,7 +1,9 @@
--- Pure validation for a single item transfer (§4.3 S5). Narrowed first
--- pass: same-category subgroup-to-subgroup only -- cross-category
--- transfer+recategorize, stack modifiers (S6), and bulk queue/throttle
--- (S7) are deliberate follow-ups once this core move is proven live.
+-- Pure validation for a single item transfer (§4.3 S5). Storage-move
+-- validity only -- whether a category changed too (recategorize, R2) is
+-- Core/Init.lua's concern and doesn't affect this check at all, so the
+-- same validator covers both same-category and cross-category drops.
+-- Stack modifiers (S6) and bulk queue/throttle (S7) are still deliberate
+-- follow-ups.
 --
 -- Live eligibility (soulbound vs warbound -- see Core/API.lua's
 -- IsItemAllowedInBankType) and the destination slot (Core/API.lua's
