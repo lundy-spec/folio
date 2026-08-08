@@ -41,7 +41,7 @@ local function AddListView(f, currencyBar)
 	scrollBar:SetPoint("BOTTOMLEFT", scrollBox, "BOTTOMRIGHT", 4, 0)
 end
 
-local function AddResizeGrip(f, maxHeight)
+local function AddResizeGrip(f)
 	local grip = CreateFrame("Button", nil, f)
 	grip:SetPoint("BOTTOMRIGHT", -6, 6)
 	grip:SetSize(16, 16)
@@ -95,7 +95,7 @@ function Frame.Create()
 		f:SetPortraitToAsset("Interface\\Icons\\INV_Misc_Bag_08")
 	end
 
-	AddResizeGrip(f, maxHeight)
+	AddResizeGrip(f)
 	local currencyBar = AddCurrencyBar(f)
 	AddListView(f, currencyBar)
 
