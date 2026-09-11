@@ -21,20 +21,37 @@ local wowGlobals = {
 	-- Widgets & frame construction
 	"CreateFrame", "UIParent", "UISpecialFrames", "GameTooltip",
 	"CreateScrollBoxListLinearView", "ScrollUtil", "CreateDataProvider",
+	-- Show Bags button (UI/Frame.lua): secure click-forward target
+	"MainMenuBarBackpackButton",
 	-- Item/container/bank/currency APIs
-	"C_Container", "C_Item", "C_CurrencyInfo", "C_Bank", "Enum", "ItemLocation",
+	"C_Container", "C_Item", "C_CurrencyInfo", "C_Bank", "C_TradeSkillUI", "Enum", "ItemLocation",
+	"C_MythicPlus", "C_ChallengeMode",
 	-- Misc game state
 	"GetMoney", "GetMoneyString", "GetCursorInfo", "GetCursorPosition",
-	"GetMouseFoci", "GetScreenHeight", "ITEM_QUALITY_COLORS", "CopyTable", "time",
+	"GetMouseFoci", "GetScreenHeight", "GetScreenWidth", "ITEM_QUALITY_COLORS", "CopyTable", "time",
+	"IsShiftKeyDown", "CreateColor",
+	"C_Timer",
+	-- Settings panel (§ Options)
+	"Settings", "StaticPopup_Show",
+	-- Corner menu (Blizzard_Menu)
+	"MenuUtil",
 }
 
+-- StaticPopupDialogs is a Blizzard table addons register new keys into,
+-- not a value addons assign wholesale, so it needs write access rather
+-- than read_globals' read-only treatment. Both Core/ (category
+-- create/delete/reset confirmations) and UI/ (Options panel) register
+-- popups into it.
 files["Core/**/*.lua"] = {
 	read_globals = wowGlobals,
 	-- Folio's own globals: FOLIO_DB is the declared SavedVariable;
 	-- SLASH_FOLIO1/SlashCmdList are how WoW's slash command system works.
-	globals = { "FOLIO_DB", "SLASH_FOLIO1", "SlashCmdList" },
+	globals = { "FOLIO_DB", "SLASH_FOLIO1", "SlashCmdList", "StaticPopupDialogs" },
 }
-files["UI/**/*.lua"] = { read_globals = wowGlobals }
+files["UI/**/*.lua"] = {
+	read_globals = wowGlobals,
+	globals = { "StaticPopupDialogs" },
+}
 
 -- Tests/ use busted's DSL (describe/it/assert/before_each/...).
 files["Tests/spec/**/*.lua"] = { std = "lua51+busted" }

@@ -2,3 +2,4 @@ package-as: Folio
 
 ignore:
   - Tests
+  - docs

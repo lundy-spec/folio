@@ -14,9 +14,9 @@ Spiritually descended from [Baud Manifest](https://www.curseforge.com/wow/addons
 **Status:** early alpha, core loop working and live-verified in-game —
 categories, bag/bank/warband browsing, drag-to-recategorize and
 drag-to-transfer, category reordering, gold tracking, native bag
-replacement (the B key opens Folio). Still missing: cross-character
-rollups, stack-move modifiers, an Options panel, and an opt-in
-auto-sort helper.
+replacement (the B key opens Folio), an Options panel (Interface >
+AddOns > Folio, or `/folio options`). Still missing: cross-character
+rollups, stack-move modifiers, and an opt-in auto-sort helper.
 
 ## Development
 

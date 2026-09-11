@@ -14,6 +14,9 @@ Logic/Rules.lua
 Logic/Seed.lua
 Logic/Render.lua
 Logic/Transfer.lua
+Logic/Sort.lua
+Logic/Consolidate.lua
+Logic/Keystone.lua
 Data/Cache.lua
 Data/Scanner.lua
 Data/Currency.lua
@@ -22,5 +25,9 @@ UI/Row.lua
 UI/ListView.lua
 UI/CurrencyBar.lua
 UI/Frame.lua
+UI/DrawerFrame.lua
+UI/BankFrame.lua
+UI/WarbandFrame.lua
+UI/Options.lua
 Core/BagReplacement.lua
 Core/Init.lua

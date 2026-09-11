@@ -45,6 +45,71 @@ function API.GetItemClassInfo(itemLink)
 	return { classID = classID, subClassID = subClassID, equipLoc = equipLoc }
 end
 
+-- Which expansion introduced this item (Enum.ExpansionLevel, e.g. 9 =
+-- Dragonflight, 11 = Midnight). C_Item.GetItemInfo can return incomplete
+-- data on an item the client hasn't cached yet, hence nilable.
+-- pcall-guarded (confirmed live: something in this call chain threw for
+-- some equipped-gear item links, silently aborting that item's whole
+-- Scanner.lua entry -- name and all -- before this was wrapped).
+function API.GetItemExpansion(itemLink)
+	if not itemLink then return nil end
+	local ok, expansionID = pcall(function()
+		return select(15, C_Item.GetItemInfo(itemLink))
+	end)
+	if ok then return expansionID end
+	return nil
+end
+
+-- Trade Goods/reagent crafting quality (Bronze/Silver/Gold pre-Midnight,
+-- Silver/Gold from Midnight on -- distinct from item rarity, already
+-- conveyed via ITEM_QUALITY_COLORS name coloring in UI/Row.lua). Most
+-- items don't have one at all, hence nilable per Blizzard's own
+-- generated API docs. pcall-guarded for the same reason as
+-- GetItemExpansion above.
+function API.GetCraftingQuality(itemLink)
+	if not itemLink then return nil end
+	local ok, quality = pcall(C_TradeSkillUI.GetItemReagentQualityByItemInfo, itemLink)
+	if ok then return quality end
+	return nil
+end
+
+-- The actual small icon atlas Blizzard's own tooltip uses for this
+-- specific item's quality tier -- read dynamically rather than
+-- hardcoded, since the exact atlas name (and even the visual convention
+-- it represents -- stacked pips pre-Midnight, a single diamond/pentagon
+-- shape from Midnight on) varies by which expansion introduced the
+-- reagent, and this API already returns whichever one is correct for
+-- that specific item. pcall-guarded for the same reason as
+-- GetItemExpansion above.
+function API.GetCraftingQualityIcon(itemLink)
+	if not itemLink then return nil end
+	local ok, info = pcall(C_TradeSkillUI.GetItemReagentQualityInfo, itemLink)
+	return ok and info and info.iconSmall or nil
+end
+
+-- Q42: a character can only ever carry ONE Mythic Keystone (item 180653)
+-- at a time -- upgrading/downgrading replaces it in place -- so there's
+-- nothing to decode per-item-instance; the OWNED keystone API always
+-- describes whichever single one is currently in bags. nil/nil if the
+-- player doesn't currently have one, or the level is somehow 0
+-- (shouldn't happen for an item that exists at all, but a bare 0 isn't a
+-- real key). pcall-guarded for the same reason as GetItemExpansion above
+-- -- confirmed-live API, but a fresh keystone right after receiving one
+-- could plausibly still be resolving.
+function API.GetOwnedKeystoneInfo()
+	local ok, mapID, level = pcall(function()
+		return C_MythicPlus.GetOwnedKeystoneChallengeMapID(), C_MythicPlus.GetOwnedKeystoneLevel()
+	end)
+	if not ok or not mapID or not level or level <= 0 then
+		return nil, nil
+	end
+	local nameOk, name = pcall(C_ChallengeMode.GetMapUIInfo, mapID)
+	if not nameOk then
+		return nil, nil
+	end
+	return name, level
+end
+
 function API.GetMoney()
 	return GetMoney()
 end

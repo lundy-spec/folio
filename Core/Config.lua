@@ -20,6 +20,25 @@ local defaults = {
 	-- no rule can move -- checked before rule resolution in
 	-- Data/Assign.lua.
 	itemOverrides = {},
+	-- Manual drag-to-reorder positions within a category, keyed
+	-- itemOrder[categoryID][storage] -> ordered array of itemIDs
+	-- (Logic/Sort.lua applies this on top of the natural scan order).
+	itemOrder = {},
+	-- Pinned items (UI/Row.lua's star toggle) -- ordered array of itemIDs,
+	-- shown as a flat section above every category (Logic/Render.lua)
+	-- regardless of which category they're actually filed under.
+	pinnedItemIDs = {},
+	-- Q53: per-window/section collapse state -- collapsedByStorage[storage]
+	-- (storage = "bags"/"bank"/"warband") -> categoryID -> bool, only for
+	-- categories explicitly toggled in that specific window; anything
+	-- absent falls back to the category's own default (Logic/Tree.lua's
+	-- node.collapsed) in Logic/Render.lua. Expanding a category in the
+	-- bank drawer no longer expands it in the main bags window too.
+	collapsedByStorage = {},
+	-- Counter for user-created category ids ("custom1", "custom2", ...).
+	-- A persisted counter rather than a timestamp keeps ids short and
+	-- collision-free without pulling time() into this init path.
+	nextCategoryID = 1,
 }
 
 function Config.Init()
@@ -33,6 +52,10 @@ function Config.Init()
 		FOLIO_DB.bagReplacementEnabled = defaults.bagReplacementEnabled
 	end
 	FOLIO_DB.itemOverrides = FOLIO_DB.itemOverrides or CopyTable(defaults.itemOverrides)
+	FOLIO_DB.itemOrder = FOLIO_DB.itemOrder or CopyTable(defaults.itemOrder)
+	FOLIO_DB.pinnedItemIDs = FOLIO_DB.pinnedItemIDs or CopyTable(defaults.pinnedItemIDs)
+	FOLIO_DB.collapsedByStorage = FOLIO_DB.collapsedByStorage or CopyTable(defaults.collapsedByStorage)
+	FOLIO_DB.nextCategoryID = FOLIO_DB.nextCategoryID or defaults.nextCategoryID
 	-- F11: seed once. Folio.Seed is pure (no WoW API calls), safe to run
 	-- here at ADDON_LOADED time rather than waiting for PLAYER_LOGIN. Once
 	-- FOLIO_DB.categories exists (even as an emptied-out tree, if the user
