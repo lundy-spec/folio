@@ -31,6 +31,21 @@ local function AddBagReplacementCheckbox(f, anchor)
 	return check
 end
 
+local function AddBagSpacePercentCheckbox(f, anchor)
+	local check = CreateFrame("CheckButton", nil, f, "ChatConfigCheckButtonTemplate")
+	check:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -8)
+	check.Text:SetText("Show bag space as a percentage")
+	check:SetScript("OnClick", function(self)
+		if self:GetChecked() ~= Folio.Config.db.showBagSpaceAsPercent then
+			Folio.Actions.ToggleBagSpaceAsPercent()
+		end
+	end)
+	f:HookScript("OnShow", function()
+		check:SetChecked(Folio.Config.db.showBagSpaceAsPercent)
+	end)
+	return check
+end
+
 local function MakeButton(f, text, width)
 	local btn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
 	btn:SetSize(width, 22)
@@ -84,18 +99,23 @@ function Options.Create()
 
 	local title = AddTitle(f)
 	local check = AddBagReplacementCheckbox(f, title)
-	local collapseBtn = AddCollapseButtons(f, check)
+	local percentCheck = AddBagSpacePercentCheckbox(f, check)
+	local collapseBtn = AddCollapseButtons(f, percentCheck)
 	AddResetButton(f, collapseBtn)
 
 	category = Settings.RegisterCanvasLayoutCategory(f, f.name)
-	category.ID = f.name
 	Settings.RegisterAddOnCategory(category)
 
 	return category
 end
 
+-- Confirmed live: passing the addon's own name string as the category id
+-- (a previously-common idiom, and what this used to do via a hand-set
+-- category.ID) now fails -- OpenSettingsPanel validates its argument as a
+-- real integer and rejects a string with "outside of expected range".
+-- category:GetID() is the actual id Blizzard assigned on registration.
 function Options.Open()
-	Settings.OpenToCategory(Options.Create().ID)
+	Settings.OpenToCategory(Options.Create():GetID())
 end
 
 return Options

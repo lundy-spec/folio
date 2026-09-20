@@ -31,6 +31,11 @@ function ListView.Create(parent)
 	end)
 
 	ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
+	-- Experimenting with hiding the scrollbar entirely when the current
+	-- row count fits without scrolling, rather than always reserving its
+	-- space -- Blizzard's own ScrollBar mixin already has this exact
+	-- toggle built in.
+	scrollBar:SetHideIfUnscrollable(true)
 
 	if not useButtonEnsured then
 		useButtonEnsured = true

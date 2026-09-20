@@ -25,16 +25,20 @@ local wowGlobals = {
 	"MainMenuBarBackpackButton",
 	-- Item/container/bank/currency APIs
 	"C_Container", "C_Item", "C_CurrencyInfo", "C_Bank", "C_TradeSkillUI", "Enum", "ItemLocation",
-	"C_MythicPlus", "C_ChallengeMode",
 	-- Misc game state
 	"GetMoney", "GetMoneyString", "GetCursorInfo", "GetCursorPosition",
 	"GetMouseFoci", "GetScreenHeight", "GetScreenWidth", "ITEM_QUALITY_COLORS", "CopyTable", "time",
+	"UnitName",
 	"IsShiftKeyDown", "CreateColor",
 	"C_Timer",
 	-- Settings panel (§ Options)
 	"Settings", "StaticPopup_Show",
 	-- Corner menu (Blizzard_Menu)
 	"MenuUtil",
+	-- Combat-safe bag keybind override (Core/BagReplacement.lua)
+	"InCombatLockdown", "GetBindingKey", "SetOverrideBindingClick", "ClearOverrideBindings",
+	-- Sell cursor at a vendor (UI/Row.lua)
+	"MerchantFrame", "ShowContainerSellCursor", "ResetCursor", "SetCursor",
 }
 
 -- StaticPopupDialogs is a Blizzard table addons register new keys into,

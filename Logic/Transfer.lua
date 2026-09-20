@@ -5,11 +5,11 @@
 -- Stack modifiers (S6) and bulk queue/throttle (S7) are still deliberate
 -- follow-ups.
 --
--- Live eligibility (soulbound vs warbound -- see Core/API.lua's
--- IsItemAllowedInBankType) and the destination slot (Core/API.lua's
--- FindEmptySlot) are computed by the caller and passed in; this module
--- only validates the structural shape of the request, so it stays pure
--- and testable without a WoW client (T1).
+-- Live eligibility (soulbound items can't go to the bank -- see
+-- Core/API.lua's IsItemAllowedInBankType) and the destination slot
+-- (Core/API.lua's FindEmptySlot) are computed by the caller and passed
+-- in; this module only validates the structural shape of the request, so
+-- it stays pure and testable without a WoW client (T1).
 
 local Transfer = {}
 

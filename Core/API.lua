@@ -14,7 +14,7 @@ function API.GetContainerItemInfo(bag, slot)
 	return C_Container.GetContainerItemInfo(bag, slot)
 end
 
--- Backpack + equipped bags + reagent bag. Bank/warband containers use a
+-- Backpack + equipped bags + reagent bag. The bank's containers use a
 -- different (and, as of Midnight, differently-indexed) scope — see F15/F16.
 function API.GetBagIDs()
 	local ids = {
@@ -60,6 +60,18 @@ function API.GetItemExpansion(itemLink)
 	return nil
 end
 
+-- Vendor sell price, in copper -- 0 for anything that can't be sold at
+-- all (quest items, etc.), per Blizzard's own docs. pcall-guarded for the
+-- same reason as GetItemExpansion above.
+function API.GetItemSellPrice(itemLink)
+	if not itemLink then return nil end
+	local ok, sellPrice = pcall(function()
+		return select(11, C_Item.GetItemInfo(itemLink))
+	end)
+	if ok then return sellPrice end
+	return nil
+end
+
 -- Trade Goods/reagent crafting quality (Bronze/Silver/Gold pre-Midnight,
 -- Silver/Gold from Midnight on -- distinct from item rarity, already
 -- conveyed via ITEM_QUALITY_COLORS name coloring in UI/Row.lua). Most
@@ -87,29 +99,6 @@ function API.GetCraftingQualityIcon(itemLink)
 	return ok and info and info.iconSmall or nil
 end
 
--- Q42: a character can only ever carry ONE Mythic Keystone (item 180653)
--- at a time -- upgrading/downgrading replaces it in place -- so there's
--- nothing to decode per-item-instance; the OWNED keystone API always
--- describes whichever single one is currently in bags. nil/nil if the
--- player doesn't currently have one, or the level is somehow 0
--- (shouldn't happen for an item that exists at all, but a bare 0 isn't a
--- real key). pcall-guarded for the same reason as GetItemExpansion above
--- -- confirmed-live API, but a fresh keystone right after receiving one
--- could plausibly still be resolving.
-function API.GetOwnedKeystoneInfo()
-	local ok, mapID, level = pcall(function()
-		return C_MythicPlus.GetOwnedKeystoneChallengeMapID(), C_MythicPlus.GetOwnedKeystoneLevel()
-	end)
-	if not ok or not mapID or not level or level <= 0 then
-		return nil, nil
-	end
-	local nameOk, name = pcall(C_ChallengeMode.GetMapUIInfo, mapID)
-	if not nameOk then
-		return nil, nil
-	end
-	return name, level
-end
-
 function API.GetMoney()
 	return GetMoney()
 end
@@ -130,9 +119,8 @@ end
 -- §4.3: bank tab ids are also just bagIDs -- C_Container.GetContainerNumSlots
 -- / GetContainerItemInfo work on them exactly as they do for equipped bags
 -- (verified against Blizzard's docs: FetchPurchasedBankTabIDs returns
--- Enum.BagIndex[]). pcall-guarded since warband access can plausibly be
--- unavailable (e.g. no warband bank unlocked) and this must degrade to
--- "no tabs" rather than error.
+-- Enum.BagIndex[]). pcall-guarded to degrade to "no tabs" rather than
+-- error if the bank type is ever unavailable.
 local function GetPurchasedBankTabIDs(bankType)
 	local ok, ids = pcall(C_Bank.FetchPurchasedBankTabIDs, bankType)
 	if ok and ids then return ids end
@@ -143,14 +131,8 @@ function API.GetCharacterBankTabIDs()
 	return GetPurchasedBankTabIDs(Enum.BankType.Character)
 end
 
-function API.GetWarbandBankTabIDs()
-	return GetPurchasedBankTabIDs(Enum.BankType.Account)
-end
-
--- §4.3 S5: soulbound-vs-warbound eligibility via Blizzard's own check,
--- rather than reimplementing binding rules from a raw isBound flag
--- (which doesn't distinguish "never transferable" from "warbound, fine
--- for the warband bank").
+-- §4.3 S5: soulbound eligibility via Blizzard's own check, rather than
+-- reimplementing binding rules from a raw isBound flag.
 function API.IsItemAllowedInBankType(bag, slot, bankType)
 	local location = ItemLocation:CreateFromBagAndSlot(bag, slot)
 	if not location or not location:IsValid() then return false end
@@ -164,6 +146,17 @@ end
 -- relying on it here).
 function API.PickupContainerItem(bag, slot)
 	C_Container.PickupContainerItem(bag, slot)
+end
+
+-- UseContainerItem IS #protected in general (this is the same right-click
+-- "use"/deposit call UI/Row.lua has to route through a secure button for)
+-- but Blizzard explicitly carves out one exception: called from ordinary
+-- addon code while the Merchant frame is open, it sells the item instead
+-- -- verified against Blizzard's own docs, the same exemption every
+-- auto-sell-junk addon relies on. Only ever call this while a merchant is
+-- actually open (Core/Init.lua's MERCHANT_SHOW handler).
+function API.SellContainerItem(bag, slot)
+	C_Container.UseContainerItem(bag, slot)
 end
 
 -- First open slot across the given bagIDs, or nil if all are full.

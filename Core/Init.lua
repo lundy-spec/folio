@@ -6,8 +6,14 @@ Folio.Actions = {}
 
 local UNCATEGORIZED = "uncategorized"
 
--- §4.3 S1: bank/warband data (and the drawer that shows it, Q43) only
--- exists while a banker is actually open.
+-- The built-in "Junk" starter category's stable id (Logic/Seed.lua) --
+-- used to find sellable items regardless of what the player has renamed
+-- that category to. A custom category the player creates and calls
+-- "Junk"/"Trash" themselves gets its own id and isn't included.
+local JUNK_CATEGORY_ID = "junk"
+
+-- §4.3 S1: bank data (and the drawer that shows it, Q43) only exists
+-- while a banker is actually open.
 local isBankOpen = false
 
 -- Debounce flag for GET_ITEM_INFO_RECEIVED (see the event handler below).
@@ -35,11 +41,7 @@ local function ScanAllStorages()
 	local items = Folio.Data.Scanner.ScanBags(Folio.API, Folio.API.GetBagIDs(), "bags")
 	if isBankOpen then
 		local bankItems = Folio.Data.Scanner.ScanBags(Folio.API, Folio.API.GetCharacterBankTabIDs(), "bank")
-		local warbandItems = Folio.Data.Scanner.ScanBags(Folio.API, Folio.API.GetWarbandBankTabIDs(), "warband")
 		for _, item in ipairs(bankItems) do
-			table.insert(items, item)
-		end
-		for _, item in ipairs(warbandItems) do
 			table.insert(items, item)
 		end
 	end
@@ -97,7 +99,7 @@ local lastGroups = {}
 -- (Row.lua's ResolveHeaderDropTarget/UI/Row.lua reads this back as
 -- row.dropStorage) -- stamped per-window here rather than by
 -- Logic/Render.lua, since BuildRows itself doesn't know which window
--- (main bags, bank drawer, or warband drawer) it's being called for.
+-- (main bags, or the bank drawer) it's being called for.
 local function TagDropStorage(rows, storage)
 	for _, row in ipairs(rows) do
 		if row.kind == "header" then
@@ -107,34 +109,35 @@ local function TagDropStorage(rows, storage)
 	return rows
 end
 
--- Q43/Q54: bank and warband bank each get their own drawer window now
--- (UI/BankFrame.lua to the left, UI/WarbandFrame.lua to the right) instead
--- of sharing one with a dividing label row -- both use the SAME category
--- tree as the main window, each showing only its own storage's items
--- (Logic/Render.lua's storage-scoped BuildRows).
+-- Q43: the bank drawer -- uses the SAME category tree as the main window,
+-- showing only bank storage's items (Logic/Render.lua's storage-scoped
+-- BuildRows).
 local function RefreshBankDrawer(tree, groups)
 	if not isBankOpen or bankDrawerDismissed then
 		Folio.UI.BankFrame.Hide()
-		Folio.UI.WarbandFrame.Hide()
 		return
 	end
 
 	local db = Folio.Config.db
-	local pinnedItemIDs = db.pinnedItemIDs
 	local bankRows = TagDropStorage(
-		Folio.Render.BuildRows(tree, groups, "bank", pinnedItemIDs, db.collapsedByStorage.bank), "bank")
-	local warbandRows = TagDropStorage(
-		Folio.Render.BuildRows(tree, groups, "warband", pinnedItemIDs, db.collapsedByStorage.warband), "warband")
+		Folio.Render.BuildRows(tree, groups, "bank", db.pinnedItemIDs, db.collapsedByStorage.bank), "bank")
 
 	Folio.UI.BankFrame.SetItems(bankRows)
 	Folio.UI.BankFrame.Show()
-	Folio.UI.WarbandFrame.SetItems(warbandRows)
-	Folio.UI.WarbandFrame.Show()
 end
 
 -- Full rescan on every bag/bank change — no diffing yet (architecture
 -- principle 3 wants incremental diffs eventually; this spike proves the
 -- virtualized list works with real data first).
+-- Split out from RefreshItems so toggling the percent-display option
+-- (UI/Options.lua) can update the readout immediately without a full
+-- bag rescan -- the underlying used/total counts haven't changed, only
+-- how they're formatted.
+local function RefreshBagSpace()
+	local usedSlots, totalSlots = Folio.Data.Scanner.GetBagSpace(Folio.API, Folio.API.GetBagIDs())
+	Folio.UI.Frame.SetBagSpace(usedSlots, totalSlots)
+end
+
 local function RefreshItems()
 	local items = ScanAllStorages()
 	Folio.Data.Cache.SetItems(items)
@@ -153,7 +156,43 @@ local function RefreshItems()
 	end
 	Folio.UI.Frame.SetItems(rows)
 
+	RefreshBagSpace()
+
 	RefreshBankDrawer(tree, groups)
+end
+
+-- Auto-sell-junk-at-vendor: fires on MERCHANT_SHOW. Reads
+-- Folio.Data.Cache's raw, one-entry-PER-BAG-SLOT item list (RefreshItems()
+-- above, just called, keeps it current) rather than the category-grouped
+-- `lastGroups` -- that grouping runs same-item stacks through
+-- Logic/Consolidate.lua's MergeStacks, which collapses several physical
+-- slots into one display row carrying only ONE of their bag/slot pairs
+-- (see that file's own comment). Selling off that merged view would sell
+-- only one physical stack while reporting profit for all of them. Only
+-- "bags" storage -- a bank item isn't in a reachable slot to sell from
+-- here even if some were still cached from an earlier bank visit.
+local function SellJunkItems()
+	RefreshItems()
+	local items = Folio.Data.Cache.GetItems()
+
+	local sellable = {}
+	for _, item in ipairs(items) do
+		if item.categoryID == JUNK_CATEGORY_ID and item.storage == "bags" then
+			local sellPrice = Folio.API.GetItemSellPrice(item.itemLink)
+			if sellPrice and sellPrice > 0 then
+				table.insert(sellable, { bag = item.bag, slot = item.slot, sellPrice = sellPrice, count = item.count })
+			end
+		end
+	end
+	if #sellable == 0 then return end
+
+	local profit = Folio.Vendor.CalculateProfit(sellable)
+	for _, item in ipairs(sellable) do
+		Folio.API.SellContainerItem(item.bag, item.slot)
+	end
+
+	print(("|cff33ff99Folio|r sold %d junk item%s for %s."):format(
+		#sellable, #sellable == 1 and "" or "s", Folio.API.GetMoneyString(profit)))
 end
 
 local function Trim(s)
@@ -272,7 +311,6 @@ end
 Folio.UI.Frame.OnClosed = function()
 	bankDrawerDismissed = true
 	Folio.UI.BankFrame.Hide()
-	Folio.UI.WarbandFrame.Hide()
 end
 
 -- Deleting a category by dragging it out past the window's edges (Q19).
@@ -399,13 +437,11 @@ end
 
 local function StorageBagIDs(storage)
 	if storage == "bank" then return Folio.API.GetCharacterBankTabIDs() end
-	if storage == "warband" then return Folio.API.GetWarbandBankTabIDs() end
 	return Folio.API.GetBagIDs()
 end
 
 local function BankTypeForStorage(storage)
 	if storage == "bank" then return Enum.BankType.Character end
-	if storage == "warband" then return Enum.BankType.Account end
 	return nil
 end
 
@@ -419,11 +455,11 @@ end
 -- pixel off. Treat a drop on ANY row belonging to a category (its header
 -- or one of its items) as targeting that category, same fix as the
 -- deleted UI/DragPrototype.lua's full-block hit boxes during Q17
--- testing. `dropStorage` (Q43) is whichever window/section the target
--- header was rendered in -- main window headers all resolve to "bags",
--- the bank drawer's to "bank"/"warband" -- so dropping a bag item on ANY
--- category header in the bank drawer both recategorizes AND deposits it,
--- and vice versa for withdrawing.
+-- testing. `dropStorage` (Q43) is whichever window the target header was
+-- rendered in -- main window headers all resolve to "bags", the bank
+-- drawer's to "bank" -- so dropping a bag item on ANY category header in
+-- the bank drawer both recategorizes AND deposits it, and vice versa for
+-- withdrawing.
 local function ResolveDropTarget(target)
 	if not target then return nil end
 	if target.entryKind == "header" and target.categoryID then
@@ -538,7 +574,7 @@ bootstrap:RegisterEvent("PLAYER_MONEY")
 bootstrap:RegisterEvent("BANKFRAME_OPENED")
 bootstrap:RegisterEvent("BANKFRAME_CLOSED")
 bootstrap:RegisterEvent("PLAYERBANKSLOTS_CHANGED")
-bootstrap:RegisterEvent("PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED")
+bootstrap:RegisterEvent("MERCHANT_SHOW")
 -- Only meaningful while peekingBlizzardBags (see ArmBlizzardBagsPeek below) --
 -- the signal that the player's done looking at Blizzard's real bags and
 -- it's safe to restore Folio's keybind override.
@@ -553,7 +589,6 @@ bootstrap:SetScript("OnEvent", function(self, event, loadedAddon)
 		-- 12.0's in-combat/in-instance frame-creation restrictions (§3).
 		Folio.UI.Frame.Create()
 		Folio.UI.BankFrame.Create()
-		Folio.UI.WarbandFrame.Create()
 		Folio.UI.Options.Create()
 		RefreshItems()
 		RefreshCurrencies()
@@ -586,10 +621,21 @@ bootstrap:SetScript("OnEvent", function(self, event, loadedAddon)
 	elseif event == "BANKFRAME_CLOSED" then
 		isBankOpen = false
 		RefreshItems()
-	elseif event == "PLAYERBANKSLOTS_CHANGED" or event == "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED" then
+	elseif event == "PLAYERBANKSLOTS_CHANGED" then
+		-- Confirmed live: purchasing a bank bag slot (not merely opening
+		-- the bank -- confirmed live separately) prints "Folio has been
+		-- blocked from an action only available to the Blizzard UI".
+		-- This event plausibly fires synchronously as a direct result of
+		-- that still-in-progress protected BuyBankSlot() call, so running
+		-- RefreshItems() (a full rescan + UI rebuild) directly in this
+		-- handler risks doing it nested inside that call's own stack,
+		-- tainting it. Deferred a tick so Folio's code always runs after
+		-- any protected call already in progress has fully unwound.
 		if isBankOpen then
-			RefreshItems()
+			C_Timer.After(0, RefreshItems)
 		end
+	elseif event == "MERCHANT_SHOW" then
+		SellJunkItems()
 	elseif event == "BAG_CLOSED" then
 		if peekingBlizzardBags then
 			peekingBlizzardBags = false
@@ -649,6 +695,12 @@ local function ToggleBagReplacement()
 end
 Folio.Actions.ToggleBagReplacement = ToggleBagReplacement
 
+local function ToggleBagSpaceAsPercent()
+	Folio.Config.db.showBagSpaceAsPercent = not Folio.Config.db.showBagSpaceAsPercent
+	RefreshBagSpace()
+end
+Folio.Actions.ToggleBagSpaceAsPercent = ToggleBagSpaceAsPercent
+
 -- Q35/Q38: the "Show Bags" button (UI/Frame.lua) needs Blizzard's real bag
 -- frames reachable ALONGSIDE Folio, not instead of it, in one click -- a
 -- straight ToggleBagReplacement() flips the user's persisted preference
@@ -694,8 +746,6 @@ SlashCmdList.FOLIO = function(msg)
 		Folio.UI.Frame.Debug()
 	elseif msg == "bankdebug" then
 		Folio.UI.BankFrame.Debug()
-	elseif msg == "warbanddebug" then
-		Folio.UI.WarbandFrame.Debug()
 	else
 		Folio.UI.Frame.Toggle()
 	end

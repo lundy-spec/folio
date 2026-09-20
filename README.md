@@ -5,14 +5,14 @@ A nested-category, Blizzard-native list view for your WoW inventory.
 Folio replaces the default bag grid with a hierarchical text list —
 nested, user-organized categories you sort items into by hand (drag an
 item onto a category to file it there, permanently remembered), plus
-drag-to-transfer between bags, personal bank, and warband bank. Native
-Blizzard look and feel throughout — no custom art, no theme system.
+drag-to-transfer between bags and your personal bank. Native Blizzard
+look and feel throughout — no custom art, no theme system.
 
 Spiritually descended from [Baud Manifest](https://www.curseforge.com/wow/addons/baud-manifest)
 (Public Domain), rebuilt clean-room against current Retail APIs.
 
 **Status:** early alpha, core loop working and live-verified in-game —
-categories, bag/bank/warband browsing, drag-to-recategorize and
+categories, bag/bank browsing, drag-to-recategorize and
 drag-to-transfer, category reordering, gold tracking, native bag
 replacement (the B key opens Folio), an Options panel (Interface >
 AddOns > Folio, or `/folio options`). Still missing: cross-character

@@ -8,13 +8,12 @@
 -- drags items into), not an emergent view of auto-sorted content -- and
 -- you can't drag into a category you can't see.
 --
--- Q43: single-storage in, single-storage out -- bags, bank, and warband
--- no longer share one combined view with inline sub-group headers (§4.3
--- S1-S4, retired). The main window always renders "bags"; the bank
--- drawer (UI/BankFrame.lua) calls this twice, once per storage, for its
--- two sections. `itemsByCategory` still carries every storage's items
--- (Data/Scanner.lua tags each one), `storage` just says which key to
--- read.
+-- Q43: single-storage in, single-storage out -- bags and bank no longer
+-- share one combined view with inline sub-group headers (§4.3 S1-S4,
+-- retired). The main window always renders "bags"; the bank drawer
+-- (UI/BankFrame.lua) renders "bank". `itemsByCategory` still carries
+-- every storage's items (Data/Scanner.lua tags each one), `storage` just
+-- says which key to read.
 
 local Tree
 local _, Folio = ...
@@ -94,8 +93,8 @@ local function AppendPinnedRows(rows, itemsByCategory, pinnedItemIDs, storage)
 	end
 end
 
--- itemsByCategory: categoryID -> { bags = {...}, bank = {...}, warband = {...} }
--- (see Data/Scanner.lua's `storage` field, tagged per scan). `storage`
+-- itemsByCategory: categoryID -> { bags = {...}, bank = {...} } (see
+-- Data/Scanner.lua's `storage` field, tagged per scan). `storage`
 -- (default "bags") picks which one this call renders. `pinnedItemIDs`
 -- (Q40, optional -- nil/empty means nothing's pinned) surfaces those
 -- items in a block above everything else and hides them from their
@@ -192,10 +191,10 @@ end
 -- have to be findable -- and drops all structure (headers, indentation)
 -- down to a flat list of just the matching items. `storage` -- same
 -- single-storage-per-call contract as BuildRows (Q43); the main window's
--- search always uses "bags", the bank drawer would use "bank"/"warband"
--- if it grows its own search box later.  Case-insensitive substring
--- match on name only for now (no quality/ilvl/etc filters, unlike
--- Blizzard's own search syntax).
+-- search always uses "bags", the bank drawer would use "bank" if it grows
+-- its own search box later. Case-insensitive substring match on name only
+-- for now (no quality/ilvl/etc filters, unlike Blizzard's own search
+-- syntax).
 function Render.BuildSearchRows(tree, itemsByCategory, storage, searchText)
 	storage = storage or "bags"
 	local needle = searchText:lower()

@@ -11,8 +11,8 @@
 --   id, name, parent (id or Tree.ROOT), order,
 --   collapsed = false,
 --   rules = {},
---   storages = { bags = true, bank = true, warband = true },      -- F18
---   subCollapsed = { bags = false, bank = false, warband = false }, -- S4
+--   storages = { bags = true, bank = true },      -- F18
+--   subCollapsed = { bags = false, bank = false }, -- S4
 -- }
 --
 -- Ids are supplied by the caller (not generated here) so this module has
@@ -24,11 +24,11 @@ local ROOT = "root"
 Tree.ROOT = ROOT
 
 local function defaultStorages()
-	return { bags = true, bank = true, warband = true }
+	return { bags = true, bank = true }
 end
 
 local function defaultSubCollapsed()
-	return { bags = false, bank = false, warband = false }
+	return { bags = false, bank = false }
 end
 
 function Tree.New()

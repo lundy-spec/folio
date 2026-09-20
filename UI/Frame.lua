@@ -11,8 +11,9 @@ Folio.UI = Folio.UI or {}
 Folio.UI.Frame = Frame
 
 local frame
-local menuButton
+local portraitMenuButton
 local listView
+local bagSpaceText
 
 -- Set by Core/Init.lua. Q52: fires whenever this window is hidden, by
 -- ANY means -- its own close button, /folio, or Escape (UISpecialFrames)
@@ -66,10 +67,11 @@ local function AddSearchBox(f)
 	-- (PortraitFrameTemplate) -- confirmed live: at the same 12px inset
 	-- everything else in the frame uses, the portrait covered the
 	-- magnifying glass and most of the "Search" placeholder text. Right
-	-- edge leaves room for the corner menu button, anchored off of this
-	-- box itself (see AddMenuButton) rather than a fixed inset.
+	-- edge just the frame's standard 12px inset -- the corner menu no
+	-- longer has its own dedicated button next to this one (see
+	-- AddPortraitMenuButton) to leave room for.
 	searchBox:SetPoint("TOPLEFT", 64, -32)
-	searchBox:SetPoint("TOPRIGHT", -32, -32)
+	searchBox:SetPoint("TOPRIGHT", -12, -32)
 	searchBox:SetAutoFocus(false)
 	searchBox:HookScript("OnTextChanged", function(self)
 		Folio.Actions.SetSearchText(self:GetText())
@@ -77,67 +79,51 @@ local function AddSearchBox(f)
 	return searchBox
 end
 
--- Corner menu: the actual template Blizzard uses for a small icon-only
--- menu-trigger button (Blizzard_Menu/MenuTemplates.xml,
--- WowStyle2IconButtonTemplate) rather than a hand-rolled backdrop -- same
--- family as the close button's own template, which is why that one
--- looks native for free. Its mixin handles its own hover/pressed/
--- disabled background art; `normalAtlas`/`disabledAtlas` are properties
--- the consumer is expected to set for the icon layer (no default),
--- refreshed via a manual OnButtonStateChanged() call since OnLoad
--- already ran once, with nothing set, by the time CreateFrame returns.
--- Sits to the right of the search box (Q39), same row.
-local function AddMenuButton(f, searchBox)
-	local menu = CreateFrame("Button", nil, f, "WowStyle2IconButtonTemplate")
-	-- The mixin re-applies its background/icon atlases at their native
-	-- size on every hover/click (UseAtlasSize), which would just undo a
-	-- plain SetSize the next time it's moused over -- SetScale shrinks
-	-- everything as a rendering transform instead, so it isn't fighting
-	-- that logic. Close button is ~24x24 at full scale; this reads as a
-	-- clearly secondary, smaller control next to it.
-	menu:SetScale(0.75)
-	menu:SetPoint("LEFT", searchBox, "RIGHT", 6, 0)
-	-- Debug (Q22) found the real bug behind three earlier invisible
-	-- attempts: f.CloseButton sits at frame level 510 -- some other
-	-- header-chrome element in the template is elevated way above the
-	-- frame's own base level to guarantee it's always clickable, and was
-	-- painting over this button the whole time. IsVisible() doesn't
-	-- account for that (it only reflects the show/hide chain, not draw
-	-- order), which is why every earlier diagnostic looked clean.
-	-- Anchoring off the close button's own level instead of the frame's
-	-- clears whatever that element is.
-	menu:SetFrameLevel(f.CloseButton:GetFrameLevel() + 1)
-
-	-- Keep the template's own background chrome (dark bordered square,
-	-- already confirmed to look right) but skip its Icon layer -- no
-	-- native Blizzard hamburger-menu asset exists (three stacked lines is
-	-- a web/mobile convention, not part of Blizzard's own UI language),
-	-- so this draws one by hand instead: three flat bars, same
-	-- SetColorTexture technique already used for the drag/hover
-	-- indicators elsewhere in UI/Row.lua.
-	menu.normalAtlas = "common-dropdown-c-button-hover-arrow"
-	menu.disabledAtlas = "common-dropdown-c-button-hover-arrow"
-	menu:OnButtonStateChanged()
-	menu.Icon:Hide()
-
-	for i = -1, 1 do
-		local bar = menu:CreateTexture(nil, "OVERLAY")
-		bar:SetSize(9, 2)
-		bar:SetPoint("CENTER", 0, i * 4)
-		bar:SetColorTexture(1, 0.82, 0, 1)
-	end
-
-	menu:SetScript("OnClick", function(self)
-		MenuUtil.CreateContextMenu(self, function(_, rootDescription)
-			rootDescription:CreateButton("New Category", function()
-				Folio.Actions.ShowNewCategoryDialog()
-			end)
-			rootDescription:CreateButton("Options", function()
-				Folio.UI.Options.Open()
-			end)
+-- Corner menu's actual content -- shared so both the trigger below and
+-- (eventually) anything else that wants the same menu don't duplicate it.
+local function ShowCornerMenu(anchor)
+	MenuUtil.CreateContextMenu(anchor, function(_, rootDescription)
+		rootDescription:CreateButton("New Category", function()
+			Folio.Actions.ShowNewCategoryDialog()
+		end)
+		rootDescription:CreateButton("Options", function()
+			Folio.UI.Options.Open()
 		end)
 	end)
-	return menu
+end
+
+-- Confirmed live: Blizzard's own Combined Backpack window has no separate
+-- hamburger-style button at all -- clicking its portrait icon directly
+-- opens the equivalent menu. Following that pattern instead of a
+-- dedicated control next to the search box. Nothing in PortraitFrameTemplate
+-- itself makes the portrait clickable (this is Blizzard's own ContainerFrame
+-- adding its own overlay, not a template feature), so this does the same:
+-- a plain transparent Button sized to the portrait's own container.
+local function AddPortraitMenuButton(f)
+	local button = CreateFrame("Button", nil, f)
+	-- SetAllPoints(f.PortraitContainer) produced a 1x1px button -- confirmed
+	-- live via /folio debug (rect came back essentially a single point at
+	-- the frame's own top-left corner). PortraitContainer is apparently
+	-- just a zero-size layout anchor, not the portrait's actual visible
+	-- bounds. Sized/positioned explicitly instead, using the same overhang
+	-- clearance AddSearchBox already had to account for (its own TOPLEFT
+	-- starts at 64, -32 specifically to clear the portrait's circular art).
+	button:SetSize(64, 64)
+	button:SetPoint("TOPLEFT", f, "TOPLEFT", -8, 8)
+	-- Same fix AddMenuButton needed before it (Q22): f.CloseButton sits at
+	-- frame level 510 -- some other header-chrome element is elevated way
+	-- above the frame's own base level to guarantee it's always
+	-- clickable, and would otherwise swallow this button's clicks too.
+	button:SetFrameLevel(f.CloseButton:GetFrameLevel() + 1)
+
+	-- No highlight texture or hover tooltip -- confirmed live the
+	-- highlight square could get stuck showing over the portrait art
+	-- rather than only appearing on actual mouseover, and Blizzard's own
+	-- Combined Backpack doesn't decorate its portrait on hover either.
+	button:SetScript("OnClick", function(self)
+		ShowCornerMenu(self)
+	end)
+	return button
 end
 
 -- Q36/Q38: a plain button whose OnClick (or a dropdown-menu entry, tried
@@ -159,11 +145,19 @@ end
 -- menu entry.
 local function AddShowBagsButton(f, currencyBar)
 	local btn = CreateFrame("Button", nil, f, "SecureActionButtonTemplate")
-	btn:SetSize(14, 14)
-	-- Tucked directly into the frame's own bottom-left corner (not
-	-- centered on currencyBar's row) with a flat 8px inset on both axes,
-	-- rather than following currencyBar's own (12, 8) padding.
-	btn:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 8, 8)
+	-- Smaller than the well's own 20px height (not a flush fit) so it
+	-- reads as sitting inside a padded well rather than wedged edge-to-
+	-- edge in it -- 12px leaves 4px of clearance top and bottom, matching
+	-- the well's own 4px border inset (UI/CurrencyBar.lua).
+	btn:SetSize(12, 12)
+	-- Sits inside currencyBar's own well now (UI/CurrencyBar.lua's
+	-- BackdropTemplate border), not the main frame's bare corner --
+	-- confirmed live the previous flat 8px-from-frame-corner anchor
+	-- landed partly outside/overlapping the well's left edge once that
+	-- border existed. "LEFT" centers it on the bar's own height
+	-- automatically; 5px clears the border's 4px inset with a hair of
+	-- breathing room.
+	btn:SetPoint("LEFT", currencyBar, "LEFT", 5, 0)
 	-- currencyBar spans the ENTIRE footer width (BOTTOMLEFT to BOTTOMRIGHT
 	-- of the main frame, per AddCurrencyBar) and is itself mouse-enabled
 	-- with its own OnEnter/tooltip -- geometrically this button sits
@@ -201,6 +195,18 @@ local function AddShowBagsButton(f, currencyBar)
 	btn:SetScript("OnLeave", function()
 		GameTooltip:Hide()
 	end)
+
+	-- Bag space (used/total slots), right next to the button that opens
+	-- Blizzard's own bags -- SetBagSpace (Core/Init.lua's RefreshItems)
+	-- keeps this current on every bag change. Parented to btn, not f --
+	-- confirmed live it rendered behind currencyBar's own well backdrop
+	-- otherwise: a FontString draws at its PARENT's frame level, and
+	-- currencyBar sits above f's base level (btn itself already needed
+	-- to go a level above currencyBar just to be clickable, right above
+	-- this comment) -- being a direct child of f left it a level below
+	-- that backdrop instead of above it.
+	bagSpaceText = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	bagSpaceText:SetPoint("LEFT", btn, "RIGHT", 6, 0)
 
 	return btn
 end
@@ -259,17 +265,49 @@ function Frame.Create()
 	end)
 
 	if f.SetTitle then
-		f:SetTitle("Folio")
+		-- UnitName should always resolve by PLAYER_LOGIN (this frame's
+		-- only current creation point), but falls back to the plain
+		-- title rather than ever showing a literal "nil's Folio". Forever
+		-- added surnames -- UnitName now plausibly returns "Given Sur" as
+		-- one space-separated string with no separate accessor for just
+		-- the given name, so take everything up to the first space.
+		local playerName = UnitName("player")
+		if playerName then
+			playerName = playerName:match("^(%S+)")
+		end
+		f:SetTitle(playerName and (playerName .. "'s Folio") or "Folio")
+	end
+	if f.TitleContainer and f.TitleContainer.TitleText then
+		-- PortraitFrameTemplate's own title defaults to plain white --
+		-- confirmed live against Blizzard's own Combined Backpack window
+		-- (same template), whose title renders in this warm gold instead.
+		-- Same value as UI/Row.lua's category header color, for the same
+		-- reason: matching Blizzard's own UI language rather than an
+		-- arbitrary pick. The FontString lives under TitleContainer, not
+		-- directly on the frame -- confirmed live (a first attempt at
+		-- f.TitleText errored, "attempt to index field 'TitleText' (a nil
+		-- value)").
+		f.TitleContainer.TitleText:SetTextColor(1, 0.82, 0, 1)
 	end
 	if f.SetPortraitToAsset then
 		f:SetPortraitToAsset("Interface\\Icons\\INV_Misc_Bag_08")
+	end
+	if f.Bg then
+		-- Confirmed live against Blizzard's own Combined Backpack window
+		-- (same template): its body fill lets a bit of the scene behind
+		-- it show through instead of sitting fully opaque like this did.
+		-- Bg is the flat body-fill layer specifically (separate from the
+		-- header/border art), so this doesn't touch either of those.
+		-- 0.7 is a first pass, not a confirmed-live match -- tune from a
+		-- screenshot.
+		f.Bg:SetAlpha(0.7)
 	end
 
 	AddResizeGrip(f)
 	local currencyBar = AddCurrencyBar(f)
 	listView = AddListView(f, currencyBar)
-	local searchBox = AddSearchBox(f)
-	menuButton = AddMenuButton(f, searchBox)
+	AddSearchBox(f)
+	portraitMenuButton = AddPortraitMenuButton(f)
 	AddShowBagsButton(f, currencyBar)
 
 	-- §6: register with the UI panel system so Escape closes it like any
@@ -301,6 +339,28 @@ function Frame.SetItems(rows)
 	listView:SetItems(rows)
 end
 
+-- §Options: percent display is a formatting choice only -- the low-space
+-- warning color below is keyed off the real used-space fraction either
+-- way, not whatever's currently shown. Confirmed live: a flat "10 free
+-- slots" threshold triggered way earlier than intended on a 32-slot bag
+-- (net 69% used) -- scales with bag size instead, at 90% full, so a
+-- 20-slot bag and 32-slot bag both warn at the same fullness.
+local LOW_SPACE_PERCENT = 0.9
+local LOW_SPACE_COLOR = { 1, 0.15, 0.15 }
+local NORMAL_COLOR = { 1, 1, 1 }
+
+function Frame.SetBagSpace(used, total)
+	if not bagSpaceText then return end
+	local usedPercent = total > 0 and (used / total) or 0
+	if Folio.Config.db.showBagSpaceAsPercent then
+		bagSpaceText:SetText(math.floor(usedPercent * 100 + 0.5) .. "%")
+	else
+		bagSpaceText:SetText(("%d/%d"):format(used, total))
+	end
+	local color = usedPercent >= LOW_SPACE_PERCENT and LOW_SPACE_COLOR or NORMAL_COLOR
+	bagSpaceText:SetTextColor(color[1], color[2], color[3])
+end
+
 -- TEMP DEBUG (Q22): the corner menu button hasn't shown up in three
 -- attempts, with no Lua error and no print output either at PLAYER_LOGIN
 -- time -- on-demand via /folio debug instead, so there's no scrollback/
@@ -313,12 +373,13 @@ function Frame.Debug()
 	print("|cff33ff99Folio debug|r f.CloseButton rect =",
 		f.CloseButton:GetLeft(), f.CloseButton:GetRight(), f.CloseButton:GetTop(), f.CloseButton:GetBottom(),
 		"level=", f.CloseButton:GetFrameLevel())
-	if menuButton then
-		print("|cff33ff99Folio debug|r menuButton rect =",
-			menuButton:GetLeft(), menuButton:GetRight(), menuButton:GetTop(), menuButton:GetBottom(),
-			"scale=", menuButton:GetEffectiveScale(), "strata=", menuButton:GetFrameStrata(),
-			"level=", menuButton:GetFrameLevel(), "alpha=", menuButton:GetAlpha(),
-			"shown=", menuButton:IsShown(), "visible=", menuButton:IsVisible())
+	if portraitMenuButton then
+		print("|cff33ff99Folio debug|r portraitMenuButton rect =",
+			portraitMenuButton:GetLeft(), portraitMenuButton:GetRight(),
+			portraitMenuButton:GetTop(), portraitMenuButton:GetBottom(),
+			"scale=", portraitMenuButton:GetEffectiveScale(), "strata=", portraitMenuButton:GetFrameStrata(),
+			"level=", portraitMenuButton:GetFrameLevel(), "alpha=", portraitMenuButton:GetAlpha(),
+			"shown=", portraitMenuButton:IsShown(), "visible=", portraitMenuButton:IsVisible())
 	end
 end
 

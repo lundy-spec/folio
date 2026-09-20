@@ -101,40 +101,6 @@ describe("Data.Scanner", function()
 		assert.is_nil(items[1].name)
 	end)
 
-	it("appends the owned keystone's dungeon+level to the Mythic Keystone's name (Q42)", function()
-		local fakeApi = {
-			GetContainerNumSlots = function() return 1 end,
-			GetContainerItemInfo = function()
-				return { itemID = 180653, hyperlink = "item:180653", itemName = "Mythic Keystone", stackCount = 1, quality = 1 }
-			end,
-			GetItemLevel = function() return nil end,
-			GetItemClassInfo = function() return nil end,
-			GetCraftingQuality = function() return nil end,
-			GetCraftingQualityIcon = function() return nil end,
-			GetItemExpansion = function() return nil end,
-			GetOwnedKeystoneInfo = function() return "Pit of Saron", 10 end,
-		}
-		local items = Scanner.ScanBags(fakeApi, { 0 })
-		assert.are.equal("Mythic Keystone (PoS +10)", items[1].name)
-	end)
-
-	it("does not call GetOwnedKeystoneInfo for any other item", function()
-		local fakeApi = {
-			GetContainerNumSlots = function() return 1 end,
-			GetContainerItemInfo = function()
-				return { itemID = 111, hyperlink = "item:111", itemName = "Healing Potion", stackCount = 1, quality = 1 }
-			end,
-			GetItemLevel = function() return nil end,
-			GetItemClassInfo = function() return nil end,
-			GetCraftingQuality = function() return nil end,
-			GetCraftingQualityIcon = function() return nil end,
-			GetItemExpansion = function() return nil end,
-			GetOwnedKeystoneInfo = function() error("should not be called") end,
-		}
-		local items = Scanner.ScanBags(fakeApi, { 0 })
-		assert.are.equal("Healing Potion", items[1].name)
-	end)
-
 	it("skips empty slots", function()
 		local fakeApi = {
 			GetContainerNumSlots = function() return 2 end,
@@ -152,5 +118,43 @@ describe("Data.Scanner", function()
 			GetItemLevel = function() error("should not be called") end,
 		}
 		assert.are.same({}, Scanner.ScanBags(fakeApi, {}))
+	end)
+
+	describe("GetBagSpace", function()
+		it("counts total slots and only the occupied ones as used", function()
+			local slots = {
+				[0] = { [1] = { itemID = 111 }, [2] = nil },
+				[1] = { [1] = { itemID = 222 }, [2] = { itemID = 333 } },
+			}
+			local fakeApi = {
+				GetContainerNumSlots = function() return 2 end,
+				GetContainerItemInfo = function(bag, slot)
+					return slots[bag] and slots[bag][slot]
+				end,
+			}
+			local used, total = Scanner.GetBagSpace(fakeApi, { 0, 1 })
+			assert.are.equal(3, used)
+			assert.are.equal(4, total)
+		end)
+
+		it("returns 0/0 for zero bags", function()
+			local fakeApi = {
+				GetContainerNumSlots = function() error("should not be called") end,
+				GetContainerItemInfo = function() error("should not be called") end,
+			}
+			local used, total = Scanner.GetBagSpace(fakeApi, {})
+			assert.are.equal(0, used)
+			assert.are.equal(0, total)
+		end)
+
+		it("counts an entirely empty bag as all-available", function()
+			local fakeApi = {
+				GetContainerNumSlots = function() return 4 end,
+				GetContainerItemInfo = function() return nil end,
+			}
+			local used, total = Scanner.GetBagSpace(fakeApi, { 0 })
+			assert.are.equal(0, used)
+			assert.are.equal(4, total)
+		end)
 	end)
 end)

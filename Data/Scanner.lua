@@ -2,13 +2,7 @@
 -- Takes `api` as a parameter rather than reaching for Folio.API directly,
 -- so tests can inject a fake (T2) without touching a real WoW client.
 
-local Keystone
 local _, Folio = ...
-if type(Folio) == "table" then
-	Keystone = Folio.Keystone
-else
-	Keystone = require("Logic.Keystone")
-end
 
 local Scanner = {}
 
@@ -31,14 +25,6 @@ function Scanner.ScanBags(api, bagIDs, storage)
 				-- `entry.name or fallback` actually catches it (Lua's `or`
 				-- doesn't treat "" as falsy).
 				local name = info.itemName ~= "" and info.itemName or nil
-				-- Q42: the Mythic Keystone (item 180653, Folio's only
-				-- itemID-specific special case) gets its current
-				-- dungeon+level appended -- "Mythic Keystone (PoS +10)"
-				-- instead of the bare name every key shares.
-				if info.itemID == Keystone.ITEM_ID then
-					local dungeonName, level = api.GetOwnedKeystoneInfo()
-					name = Keystone.AppendSuffix(name, dungeonName, level)
-				end
 				table.insert(items, {
 					kind = "item",
 					itemID = info.itemID,
@@ -64,6 +50,24 @@ function Scanner.ScanBags(api, bagIDs, storage)
 		end
 	end
 	return items
+end
+
+-- Used/total slot counts across the given bagIDs -- a separate, lighter
+-- pass than ScanBags itself (which normalizes every OCCUPIED slot into a
+-- full entry record); this only needs a count, occupied or not, so it
+-- doesn't build up classInfo/craftingQuality/etc. for anything.
+function Scanner.GetBagSpace(api, bagIDs)
+	local used, total = 0, 0
+	for _, bag in ipairs(bagIDs) do
+		local numSlots = api.GetContainerNumSlots(bag)
+		total = total + numSlots
+		for slot = 1, numSlots do
+			if api.GetContainerItemInfo(bag, slot) then
+				used = used + 1
+			end
+		end
+	end
+	return used, total
 end
 
 if type(Folio) == "table" then

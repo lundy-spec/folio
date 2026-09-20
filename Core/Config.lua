@@ -16,6 +16,9 @@ local defaults = {
 	seededCurrencies = false,
 	-- F8: "Default on; must degrade gracefully when off."
 	bagReplacementEnabled = true,
+	-- Bag-space readout next to the Show Bags button (UI/Frame.lua) --
+	-- "12/20" by default, "60%" when this is on.
+	showBagSpaceAsPercent = false,
 	-- R2: manual category assignment, keyed by itemID. A sticky override
 	-- no rule can move -- checked before rule resolution in
 	-- Data/Assign.lua.
@@ -29,7 +32,7 @@ local defaults = {
 	-- regardless of which category they're actually filed under.
 	pinnedItemIDs = {},
 	-- Q53: per-window/section collapse state -- collapsedByStorage[storage]
-	-- (storage = "bags"/"bank"/"warband") -> categoryID -> bool, only for
+	-- (storage = "bags"/"bank") -> categoryID -> bool, only for
 	-- categories explicitly toggled in that specific window; anything
 	-- absent falls back to the category's own default (Logic/Tree.lua's
 	-- node.collapsed) in Logic/Render.lua. Expanding a category in the
@@ -51,6 +54,9 @@ function Config.Init()
 	if FOLIO_DB.bagReplacementEnabled == nil then
 		FOLIO_DB.bagReplacementEnabled = defaults.bagReplacementEnabled
 	end
+	if FOLIO_DB.showBagSpaceAsPercent == nil then
+		FOLIO_DB.showBagSpaceAsPercent = defaults.showBagSpaceAsPercent
+	end
 	FOLIO_DB.itemOverrides = FOLIO_DB.itemOverrides or CopyTable(defaults.itemOverrides)
 	FOLIO_DB.itemOrder = FOLIO_DB.itemOrder or CopyTable(defaults.itemOrder)
 	FOLIO_DB.pinnedItemIDs = FOLIO_DB.pinnedItemIDs or CopyTable(defaults.pinnedItemIDs)
@@ -60,6 +66,18 @@ function Config.Init()
 	-- here at ADDON_LOADED time rather than waiting for PLAYER_LOGIN. Once
 	-- FOLIO_DB.categories exists (even as an emptied-out tree, if the user
 	-- deletes everything later) this never re-seeds.
+	--
+	-- Known issue, not fixable from here: WoW: Forever beta build
+	-- 1.60.1.69893 has a confirmed client-side bug (independently
+	-- reproduced by multiple addon authors, tracked upstream at
+	-- ClassicWoWCommunity/forever-bugs#34) where SavedVariables are
+	-- written correctly on exit but not always read back before
+	-- ADDON_LOADED fires -- this branch then (correctly, for what it can
+	-- see) treats a still-loading FOLIO_DB as a fresh install and seeds
+	-- defaults, silently losing that session's data. No addon-side
+	-- workaround found that doesn't require either an external
+	-- companion script or accepting WoW macros' ~255-char size limit,
+	-- both worse than just waiting for Blizzard to fix the client.
 	if not FOLIO_DB.categories then
 		FOLIO_DB.categories = Folio.Seed.BuildDefaultTree()
 	end

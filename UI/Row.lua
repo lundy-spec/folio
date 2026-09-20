@@ -30,8 +30,8 @@ Row.OnItemDragStart = nil
 Row.OnItemDragStop = nil
 
 -- Set by Core/Init.lua. Category-header-to-category-header reordering --
--- only fires for bare category headers (not Bags/Bank/Warband
--- sub-groups, whose order is fixed per S2). dropPosition is "before" or
+-- only fires for bare category headers (not Bags/Bank sub-groups, whose
+-- order is fixed per S2). dropPosition is "before" or
 -- "after" the target (reorder as a sibling) or "into" (nest as its
 -- child), based on which third of the target row the cursor was over
 -- when released -- see the drag-tracking below.
@@ -90,6 +90,29 @@ local function ShowItemHover(row)
 	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
 	GameTooltip:SetHyperlink(row.itemLink)
 	GameTooltip:Show()
+	-- Same cursor Blizzard's own bag item buttons show while a merchant
+	-- is open (confirmed against ContainerFrame.lua's own MerchantFrame:
+	-- IsVisible() + ShowContainerSellCursor(bag, slot) pattern) -- matches
+	-- the right-click use button (above) actually selling in that same
+	-- context. Bags only -- a bank item isn't in a reachable slot to sell
+	-- even while a merchant happens to be open at the same time.
+	--
+	-- Confirmed live: ShowContainerSellCursor itself no longer exists as
+	-- a global on this client ("attempt to call a nil value") -- a known
+	-- Retail removal other addon authors have hit too, with no direct
+	-- replacement found. Falls back to calling SetCursor directly with
+	-- its presumed underlying texture -- NOT independently confirmed
+	-- (unlike everything else here), just an educated guess at the
+	-- Interface\Cursor\ naming convention other built-in cursors
+	-- ("Interface/Cursor/Taxi", etc.) follow. Low risk either way: an
+	-- invalid path just fails to show a cursor rather than erroring.
+	if row.itemStorage == "bags" and MerchantFrame and MerchantFrame:IsVisible() then
+		if ShowContainerSellCursor then
+			ShowContainerSellCursor(row.itemBag, row.itemSlot)
+		elseif SetCursor then
+			SetCursor("Interface\\Cursor\\Buy")
+		end
+	end
 end
 
 -- Guarded by identity, not unconditional: this can fire slightly before
@@ -103,6 +126,9 @@ local function HideItemHover(row)
 	hoveredItemRow = nil
 	row.hoverHighlight:Hide()
 	GameTooltip:Hide()
+	if ResetCursor then
+		ResetCursor()
+	end
 end
 
 local function ParkUseButton()
@@ -129,6 +155,29 @@ local function GetUseButton(parent)
 			end
 			ParkUseButton()
 		end)
+		-- PreClick is ordinary insecure Lua even on a secure button --
+		-- runs before the actual protected type2/item2 dispatch. Only
+		-- acts on the "up" half of the click (down fires first for both
+		-- registered click types above; without this guard the sell
+		-- would fire twice per click). At a vendor, sell this specific
+		-- slot directly -- UseContainerItem is explicitly exempt from
+		-- the protected-function rule while the Merchant frame is open
+		-- (Core/API.lua's SellContainerItem, already proven safe by the
+		-- auto-sell-junk feature). Confirmed live: clearing type2 HERE
+		-- to stop the pre-set item2 "use" from also firing didn't work --
+		-- the secure dispatch had already locked in item2 from hover
+		-- time (PositionUseButtonOver, below), so a piece of gear got
+		-- equipped right after selling instead of just sold. That
+		-- decision now happens at hover time instead, before any click,
+		-- so there's nothing left for the secure dispatch to also act on.
+		useButton:SetScript("PreClick", function(self, button, down)
+			if button ~= "RightButton" or down or not self.hoveredRow then
+				return
+			end
+			if MerchantFrame and MerchantFrame:IsVisible() and self.hoveredRow.itemStorage == "bags" then
+				Folio.API.SellContainerItem(self.hoveredRow.itemBag, self.hoveredRow.itemSlot)
+			end
+		end)
 	end
 	return useButton
 end
@@ -151,8 +200,26 @@ local function PositionUseButtonOver(row)
 	btn:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
 	btn:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 0, 0)
 	btn:SetFrameLevel(row:GetFrameLevel() + 1)
-	btn:SetAttribute("type2", "item")
-	btn:SetAttribute("item2", row.itemLink)
+	if row.itemStorage == "bags" and MerchantFrame and MerchantFrame:IsVisible() then
+		-- At a vendor: no type2 action at all -- selling happens entirely
+		-- through PreClick's direct SellContainerItem call (below), which
+		-- doesn't need or want a secure item-use action also attached to
+		-- this same right-click. Confirmed live this decision can't be
+		-- made reactively in PreClick instead: clearing type2 there was
+		-- too late, since the secure dispatch had already locked in
+		-- whatever was set here at hover time -- a piece of gear got
+		-- equipped right after selling instead of just sold.
+		btn:SetAttribute("type2", nil)
+		btn:SetAttribute("item2", nil)
+	else
+		-- item2 = the item link, not bag2/slot2 -- confirmed live that
+		-- the bag/slot variant crashes Blizzard's own SecureTemplates.lua
+		-- handler on this client ("bad argument #1 to '?' (Usage: local
+		-- result = C_Item.IsEquippableItem(itemInfo))", called from deep
+		-- inside its right-click dispatch).
+		btn:SetAttribute("type2", "item")
+		btn:SetAttribute("item2", row.itemLink)
+	end
 end
 
 -- Shared across all rows -- only one header drag happens at a time.
@@ -544,10 +611,9 @@ local function InitHeader(row, entry, indent)
 	row.itemLink = nil
 	-- Q43: which storage a drop on THIS row transfers an item to -- stamped
 	-- by Core/Init.lua on every header row it builds for a given window
-	-- (bags for the main window, bank/warband for the drawer's two
-	-- sections), separate from the category tree itself (a category
-	-- header means the same category regardless of which window it's
-	-- rendered in).
+	-- (bags for the main window, bank for the drawer), separate from the
+	-- category tree itself (a category header means the same category
+	-- regardless of which window it's rendered in).
 	row.dropStorage = entry.dropStorage
 
 	row.icon:Hide()

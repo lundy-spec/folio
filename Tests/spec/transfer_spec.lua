@@ -23,10 +23,10 @@ describe("Logic.Transfer", function()
 			assert.are.equal("already there", reason)
 		end)
 
-		it("rejects an ineligible destination (e.g. soulbound -> warband)", function()
+		it("rejects an ineligible destination (e.g. soulbound -> bank)", function()
 			local ok, reason = Transfer.Validate({
 				fromStorage = "bags",
-				toStorage = "warband",
+				toStorage = "bank",
 				eligible = false,
 				destinationBag = 12,
 			})
