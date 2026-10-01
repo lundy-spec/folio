@@ -27,6 +27,19 @@ function ListView.Create(parent)
 	local view = CreateScrollBoxListLinearView()
 	view:SetElementExtent(Folio.UI.Row.HEIGHT)
 	view:SetElementInitializer("BackdropTemplate", function(row, item)
+		-- UI/Row.lua's shared use-button is parented to UIParent (not this
+		-- scrollBox) specifically so the owning window has no secure
+		-- descendant -- it still needs to match whichever window's strata
+		-- is currently relevant when it's positioned over one of that
+		-- window's rows, since strata is no longer inherited for free via
+		-- parentage. Stamped directly on the row (not looked up via
+		-- row:GetParent()) -- confirmed live that WowScrollBoxList doesn't
+		-- parent its pooled rows directly to this scrollBox, so a
+		-- scrollBox.ownerFrame lookup via the row's actual parent always
+		-- came back nil, silently leaving the use-button at its default
+		-- MEDIUM strata (below the window's own DIALOG rows) and eating
+		-- every right-click use/sell attempt.
+		row.ownerFrame = parent
 		Folio.UI.Row.Initialize(row, item)
 	end)
 
@@ -43,7 +56,7 @@ function ListView.Create(parent)
 		-- since the shared secure "use" button's SetPassThroughButtons
 		-- call is itself combat-restricted (10.1.5+); it needs to exist
 		-- before combat could plausibly start.
-		Folio.UI.Row.EnsureUseButton(scrollBox)
+		Folio.UI.Row.EnsureUseButton()
 	end
 
 	local instance = {

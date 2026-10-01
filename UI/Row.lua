@@ -141,9 +141,20 @@ local function ParkUseButton()
 	useButton:SetSize(1, 1)
 end
 
-local function GetUseButton(parent)
+local function GetUseButton()
 	if not useButton then
-		useButton = CreateFrame("Button", nil, parent, "SecureActionButtonTemplate")
+		-- Parented to UIParent, not whichever window's scrollBox
+		-- positioned it -- neither Folio window has a secure descendant
+		-- this way. PositionUseButtonOver (below) matches its strata to
+		-- whichever window it's currently covering, since that no longer
+		-- comes for free via the parent chain. The actual combat
+		-- "Interface action failed" bug turned out to be unrelated to
+		-- this button's parentage: /console taintLog 1's Logs/taint.log
+		-- showed PositionUseButtonOver itself getting blocked calling
+		-- ClearAllPoints/SetPoint/SetFrameLevel/SetAttribute on this
+		-- button when a row's OnEnter fired during combat -- see its
+		-- InCombatLockdown() guard below.
+		useButton = CreateFrame("Button", nil, UIParent, "SecureActionButtonTemplate")
 		useButton:RegisterForClicks("RightButtonUp", "RightButtonDown")
 		useButton:SetPassThroughButtons("LeftButton")
 		useButton:SetSize(1, 1)
@@ -186,19 +197,34 @@ end
 -- first hover -- SetPassThroughButtons is itself combat-restricted
 -- (10.1.5+), so the button needs to exist before combat could plausibly
 -- start.
-function Row.EnsureUseButton(parent)
-	GetUseButton(parent)
+function Row.EnsureUseButton()
+	GetUseButton()
 end
 
 local function PositionUseButtonOver(row)
-	if dragInProgress or row.entryKind ~= "item" or not row.itemLink then
+	-- Confirmed live via /console taintLog 1 + Logs/taint.log: hovering an
+	-- item row in combat blocks here on ClearAllPoints/SetPoint/
+	-- SetFrameLevel/SetAttribute -- all forbidden on a SecureActionButton-
+	-- Template button during combat lockdown, regardless of how the button
+	-- is parented. Skipping the reposition in combat just means the
+	-- right-click "use" overlay doesn't track hover mid-fight; the row's
+	-- own highlight/tooltip (ShowItemHover, above) still works normally.
+	if InCombatLockdown() or dragInProgress or row.entryKind ~= "item" or not row.itemLink then
 		return
 	end
-	local btn = GetUseButton(row:GetParent())
+	local btn = GetUseButton()
 	btn.hoveredRow = row
 	btn:ClearAllPoints()
 	btn:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
 	btn:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 0, 0)
+	-- No longer sharing a parent with row (see GetUseButton) -- strata
+	-- has to be matched explicitly to whichever window currently owns
+	-- this row (UI/ListView.lua stamps row.ownerFrame directly -- see its
+	-- SetElementInitializer) so this renders above it and can actually
+	-- receive the click, same as before.
+	if row.ownerFrame then
+		btn:SetFrameStrata(row.ownerFrame:GetFrameStrata())
+	end
 	btn:SetFrameLevel(row:GetFrameLevel() + 1)
 	if row.itemStorage == "bags" and MerchantFrame and MerchantFrame:IsVisible() then
 		-- At a vendor: no type2 action at all -- selling happens entirely
@@ -552,8 +578,11 @@ local function Build(row)
 	end)
 	row:SetScript("OnMouseUp", function(self, button)
 		if button == "RightButton" then return end
-		-- Q40/Q41: shift-left-click an item row to pin/unpin it.
-		if button == "LeftButton" and self.entryKind == "item" and IsShiftKeyDown() then
+		-- Q40/Q41: ctrl-left-click an item row to pin/unpin it. Shift
+		-- originally, but confirmed live that collides with shift-click's
+		-- existing, much more common use (linking an item into chat) --
+		-- ctrl-click isn't claimed by anything else on an item row.
+		if button == "LeftButton" and self.entryKind == "item" and IsControlKeyDown() then
 			if Row.OnItemPinToggle and self.itemID then
 				Row.OnItemPinToggle(self.itemID)
 			end

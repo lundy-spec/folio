@@ -17,23 +17,25 @@ local function ReplacementToggle()
 	Folio.UI.Frame.Toggle()
 end
 
--- Confirmed live: pressing B in combat did nothing and printed WoW's
--- classic taint error, "Interface action failed because of an AddOn".
--- Overriding the ToggleBackpack GLOBAL below is plain insecure Lua --
--- fine out of combat, but the B key's own binding dispatch treats
--- calling a replaced global as tainted, and combat lockdown blocks
--- tainted calls to what it treats as a protected keybind action.
---
--- SetOverrideBindingClick sidesteps this the same way the Show Bags
--- button (UI/Frame.lua) already does for OpenAllBags: it makes the KEY
--- PRESS ITSELF perform a real click on a button -- even one whose
--- OnClick just runs plain addon Lua -- which WoW's security model
--- treats as genuine user interaction rather than an addon-initiated
--- call, regardless of combat state. The button doesn't need to be
--- shown; it only ever exists as a click target for the key.
+-- Confirmed live: SetOverrideBindingClick isn't fully suppressing the
+-- underlying "B" binding dispatch on this client -- pressing B fires
+-- BOTH the override-click below AND, separately, whatever ToggleBackpack
+-- currently points to (a Forever-beta-specific divergence from
+-- documented behavior). Keeping Folio's replacement functions active
+-- only OUT of combat, and swapping back to Blizzard's REAL originals for
+-- the duration of combat (PLAYER_REGEN_DISABLED/ENABLED, below), means
+-- that stray dispatch calls a real, untainted Blizzard function instead
+-- of erroring -- Folio's own window still opens via the independent
+-- override-click path regardless of what these globals currently point
+-- to, since toggleButton's OnClick calls ReplacementToggle directly,
+-- never through _G lookup.
 local toggleButton = CreateFrame("Button", "FolioBagToggleOverrideButton", UIParent)
 toggleButton:Hide()
-toggleButton:RegisterForClicks("AnyUp", "AnyDown")
+-- Confirmed live: registering both AnyUp and AnyDown fires OnClick TWICE
+-- per single key press (once on press, once on release) -- toggling
+-- Folio's window open then immediately shut again, looking like nothing
+-- happened. Just AnyUp fires once, on release, like a normal click.
+toggleButton:RegisterForClicks("AnyUp")
 toggleButton:SetScript("OnClick", ReplacementToggle)
 
 -- SetOverrideBindingClick/ClearOverrideBindings are themselves protected
@@ -79,25 +81,48 @@ local REPLACEMENTS = {
 	CloseAllBags = ReplacementHide,
 }
 
-function BagReplacement.Enable()
+local function ApplyReplacements()
 	for name, replacement in pairs(REPLACEMENTS) do
 		if originals[name] == nil then
 			originals[name] = _G[name]
 		end
 		_G[name] = replacement
 	end
+end
+
+local function RestoreOriginals()
+	for name in pairs(REPLACEMENTS) do
+		if originals[name] then
+			_G[name] = originals[name]
+		end
+	end
+end
+
+function BagReplacement.Enable()
+	ApplyReplacements()
 	SetBagKeybindOverride(true)
 end
 
 -- F8: "must degrade gracefully when off" -- restores Blizzard's original
 -- bag behavior exactly as it was before Enable() ran.
 function BagReplacement.Disable()
-	for name in pairs(REPLACEMENTS) do
-		if originals[name] then
-			_G[name] = originals[name]
-		end
-	end
+	RestoreOriginals()
 	SetBagKeybindOverride(false)
+end
+
+-- Core/Init.lua's PLAYER_REGEN_DISABLED/ENABLED handlers -- see the
+-- comment above toggleButton for why this exists. Only acts while the
+-- feature is actually turned on; a no-op otherwise.
+function BagReplacement.EnterCombat()
+	if Folio.Config.db.bagReplacementEnabled then
+		RestoreOriginals()
+	end
+end
+
+function BagReplacement.ExitCombat()
+	if Folio.Config.db.bagReplacementEnabled then
+		ApplyReplacements()
+	end
 end
 
 return BagReplacement

@@ -579,6 +579,11 @@ bootstrap:RegisterEvent("MERCHANT_SHOW")
 -- the signal that the player's done looking at Blizzard's real bags and
 -- it's safe to restore Folio's keybind override.
 bootstrap:RegisterEvent("BAG_CLOSED")
+-- Core/BagReplacement.lua swaps ToggleBackpack et al. back to Blizzard's
+-- real originals for the duration of combat -- see that file's own
+-- comment above toggleButton for why.
+bootstrap:RegisterEvent("PLAYER_REGEN_DISABLED")
+bootstrap:RegisterEvent("PLAYER_REGEN_ENABLED")
 bootstrap:SetScript("OnEvent", function(self, event, loadedAddon)
 	if event == "ADDON_LOADED" then
 		if loadedAddon ~= ADDON_NAME then return end
@@ -642,6 +647,10 @@ bootstrap:SetScript("OnEvent", function(self, event, loadedAddon)
 			Folio.BagReplacement.Enable()
 			print("|cff33ff99Folio|r bag replacement restored — B opens Folio again.")
 		end
+	elseif event == "PLAYER_REGEN_DISABLED" then
+		Folio.BagReplacement.EnterCombat()
+	elseif event == "PLAYER_REGEN_ENABLED" then
+		Folio.BagReplacement.ExitCombat()
 	end
 end)
 

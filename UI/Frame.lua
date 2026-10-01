@@ -143,8 +143,32 @@ end
 -- back into addon Lua normally -- same taint problem as calling it
 -- outright) -- that's why this is a real, always-visible button, not a
 -- menu entry.
+-- Confirmed live via /console taintLog 1 + Logs/taint.log: anchoring this
+-- secure button (SecureActionButtonTemplate) directly to currencyBar --
+-- a descendant of FolioFrame -- via a live SetPoint put FolioFrame:Show()
+-- ITSELF under combat lockdown, even though btn is parented to UIParent,
+-- not f. A secure frame's anchor family apparently carries the same
+-- restriction a secure DESCENDANT does. Recomputes an absolute UIParent-
+-- relative offset instead, so btn's anchor never references anything
+-- under f at all. Only needs recalculating when the window MOVES --
+-- currencyBar's own anchors to f are fixed offsets (AddCurrencyBar), so
+-- resizing f never shifts its LEFT edge.
+local function RepositionShowBagsButton(btn, currencyBar)
+	if InCombatLockdown() then return end
+	local left, top, bottom = currencyBar:GetLeft(), currencyBar:GetTop(), currencyBar:GetBottom()
+	if not left or not top or not bottom then return end
+	local scale = currencyBar:GetEffectiveScale() / UIParent:GetEffectiveScale()
+	btn:ClearAllPoints()
+	btn:SetPoint("LEFT", UIParent, "BOTTOMLEFT", (left + 5) * scale, ((top + bottom) / 2) * scale)
+end
+
 local function AddShowBagsButton(f, currencyBar)
-	local btn = CreateFrame("Button", nil, f, "SecureActionButtonTemplate")
+	-- Parented to UIParent instead of f, same reasoning as UI/Row.lua's
+	-- shared use-button: gives Folio's own window no secure descendant at
+	-- all. Strata explicitly matched to f's ("DIALOG") since that no
+	-- longer comes for free via the parent chain.
+	local btn = CreateFrame("Button", nil, UIParent, "SecureActionButtonTemplate")
+	btn:SetFrameStrata(f:GetFrameStrata())
 	-- Smaller than the well's own 20px height (not a flush fit) so it
 	-- reads as sitting inside a padded well rather than wedged edge-to-
 	-- edge in it -- 12px leaves 4px of clearance top and bottom, matching
@@ -154,10 +178,9 @@ local function AddShowBagsButton(f, currencyBar)
 	-- BackdropTemplate border), not the main frame's bare corner --
 	-- confirmed live the previous flat 8px-from-frame-corner anchor
 	-- landed partly outside/overlapping the well's left edge once that
-	-- border existed. "LEFT" centers it on the bar's own height
-	-- automatically; 5px clears the border's 4px inset with a hair of
-	-- breathing room.
-	btn:SetPoint("LEFT", currencyBar, "LEFT", 5, 0)
+	-- border existed. RepositionShowBagsButton (above) reproduces the
+	-- same "LEFT, +5" placement without a live anchor to currencyBar.
+	RepositionShowBagsButton(btn, currencyBar)
 	-- currencyBar spans the ENTIRE footer width (BOTTOMLEFT to BOTTOMRIGHT
 	-- of the main frame, per AddCurrencyBar) and is itself mouse-enabled
 	-- with its own OnEnter/tooltip -- geometrically this button sits
@@ -232,6 +255,10 @@ function Frame.Create()
 
 	local db = Folio.Config.db.frame
 	local maxHeight = GetScreenHeight() * MAX_HEIGHT_SCREEN_PCT
+	-- Assigned once AddShowBagsButton runs, below -- declared up here so
+	-- the OnDragStop handler (which is wired up before that point) can
+	-- still call whatever it ends up being set to.
+	local repositionShowBagsButton
 
 	local f = CreateFrame("Frame", "FolioFrame", UIParent, "PortraitFrameTemplate")
 	f:SetPoint(db.point, UIParent, db.relativePoint, db.x, db.y)
@@ -258,10 +285,42 @@ function Frame.Create()
 	f:SetMovable(true)
 	f:EnableMouse(true)
 	f:RegisterForDrag("LeftButton")
-	f:SetScript("OnDragStart", f.StartMoving)
+	-- Unlike resizing (OnSizeChanged, below), WoW has no built-in "position
+	-- changed" script -- OnUpdate while the drag is in progress is the
+	-- standard way to track it live, same live-tracking fix as
+	-- OnSizeChanged: without this, the Show Bags button/bag-space text
+	-- stayed stuck in place for the whole drag and only snapped to the
+	-- correct spot once released.
+	f:SetScript("OnDragStart", function(self)
+		self:StartMoving()
+		self:SetScript("OnUpdate", function()
+			if repositionShowBagsButton then
+				repositionShowBagsButton()
+			end
+		end)
+	end)
 	f:SetScript("OnDragStop", function(self)
 		self:StopMovingOrSizing()
+		self:SetScript("OnUpdate", nil)
 		SavePosition(self)
+		-- RepositionShowBagsButton only exists once AddShowBagsButton has
+		-- run (below); f can't be dragged before then since it's created
+		-- hidden and shown no earlier than the end of this function.
+		if repositionShowBagsButton then
+			repositionShowBagsButton()
+		end
+	end)
+	-- OnSizeChanged, separately: fires continuously during a live resize
+	-- drag (StartSizing), not just once at the end -- confirmed live that
+	-- only repositioning on the resize grip's OnMouseUp left the Show Bags
+	-- button/bag-space text visibly stuck in their old spot for the whole
+	-- drag, then snapping into place. Resizing from BOTTOMRIGHT moves f's
+	-- own bottom edge (and therefore currencyBar's), same underlying cause
+	-- as the drag case, just a different trigger (size, not position).
+	f:SetScript("OnSizeChanged", function()
+		if repositionShowBagsButton then
+			repositionShowBagsButton()
+		end
 	end)
 
 	if f.SetTitle then
@@ -303,12 +362,21 @@ function Frame.Create()
 		f.Bg:SetAlpha(0.7)
 	end
 
-	AddResizeGrip(f)
 	local currencyBar = AddCurrencyBar(f)
 	listView = AddListView(f, currencyBar)
 	AddSearchBox(f)
 	portraitMenuButton = AddPortraitMenuButton(f)
-	AddShowBagsButton(f, currencyBar)
+	local showBagsButton = AddShowBagsButton(f, currencyBar)
+	repositionShowBagsButton = function()
+		RepositionShowBagsButton(showBagsButton, currencyBar)
+	end
+	-- Parented to UIParent (see AddShowBagsButton), not f -- confirmed
+	-- live it stayed floating on screen after f:Hide() closed the window,
+	-- since it's no longer a descendant that hides for free with it.
+	-- Starts hidden here to match f's own initial hidden state (below);
+	-- OnShow/OnHide (also below) keep it in sync from then on.
+	showBagsButton:Hide()
+	AddResizeGrip(f)
 
 	-- §6: register with the UI panel system so Escape closes it like any
 	-- other Blizzard panel.
@@ -317,6 +385,23 @@ function Frame.Create()
 	f:HookScript("OnHide", function()
 		if Frame.OnClosed then
 			Frame.OnClosed()
+		end
+		-- Show()/Hide() on a SecureActionButtonTemplate with attributes
+		-- already set is itself combat-restricted, the same family of
+		-- restriction chased down earlier for FolioFrame's own Show() --
+		-- guarded rather than risking a new "Interface action failed" on
+		-- close. Worst case if this is skipped: the button/text stay
+		-- visible until the next out-of-combat open/close, same tradeoff
+		-- already accepted for the row hover button and Show Bags
+		-- repositioning elsewhere in this file.
+		if not InCombatLockdown() then
+			showBagsButton:Hide()
+		end
+	end)
+	f:HookScript("OnShow", function()
+		if not InCombatLockdown() then
+			showBagsButton:Show()
+			repositionShowBagsButton()
 		end
 	end)
 

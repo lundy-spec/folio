@@ -29,7 +29,7 @@ local wowGlobals = {
 	"GetMoney", "GetMoneyString", "GetCursorInfo", "GetCursorPosition",
 	"GetMouseFoci", "GetScreenHeight", "GetScreenWidth", "ITEM_QUALITY_COLORS", "CopyTable", "time",
 	"UnitName",
-	"IsShiftKeyDown", "CreateColor",
+	"IsControlKeyDown", "CreateColor",
 	"C_Timer",
 	-- Settings panel (§ Options)
 	"Settings", "StaticPopup_Show",
