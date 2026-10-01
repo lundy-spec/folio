@@ -21,10 +21,18 @@ Folio.UI.BankFrame = BankFrame
 -- (Q48 -- reads as "emerging from behind" rather than sitting flush
 -- beside it), how far above main's own bottom edge it rests (Q50), and
 -- the slide timings -- all purely aesthetic guesses, not verifiable
--- without seeing it live.
+-- without seeing it live. OVERLAP is the exception: since the switch to
+-- a translucent body fill (UI/Frame.lua's Bg alpha), anything of the
+-- drawer tucked behind main shows through it, so OVERLAP is sized to
+-- land the drawer's right border exactly under main's left border --
+-- measured live from a screenshot (16 left the drawer's border visible
+-- ~11 units inside main).
 local HEIGHT_INSET = 100
+-- Drawer width as a fraction of the main window's -- a secondary view,
+-- so it reads as subordinate rather than a second full-size window.
+local WIDTH_RATIO = 0.8
 local MIN_HEIGHT = 150
-local OVERLAP = 16
+local OVERLAP = 5
 local Y_OFFSET = 30
 local SLIDE_OUT_DURATION = 0.25
 local SLIDE_IN_DURATION = 0.2
@@ -85,7 +93,7 @@ end
 local function RepositionBehindMain(f)
 	local mainFrame = Folio.UI.Frame.Create()
 	local width, height = mainFrame:GetWidth(), mainFrame:GetHeight()
-	f:SetSize(width, math.max(height - HEIGHT_INSET, MIN_HEIGHT))
+	f:SetSize(width * WIDTH_RATIO, math.max(height - HEIGHT_INSET, MIN_HEIGHT))
 	f:ClearAllPoints()
 	-- Starting ("hidden") anchor: directly behind/overlapping the main
 	-- frame, at the SAME Y_OFFSET the resting position uses -- the open

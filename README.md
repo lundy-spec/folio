@@ -27,8 +27,9 @@ rollups, stack-move modifiers, and an opt-in auto-sort helper.
   a WoW client. `Core/API.lua` is the only file allowed to touch WoW
   globals directly; `Data/` reaches WoW state only through an `api`
   parameter injected by its caller, never directly.
-- Run tests locally with `Tests/run.ps1` (Windows) or `busted Tests/spec`
-  once Lua/LuaRocks/busted are on `PATH`. Lint with `Tests/lint.ps1` or
+- Run tests locally with `Tests/run.ps1` (Windows), `Tests/run.sh`
+  (macOS/Linux), or `busted Tests/spec` once Lua/LuaRocks/busted are on
+  `PATH`. Lint with `Tests/lint.ps1`, `Tests/lint.sh`, or
   `luacheck Core Data Logic UI Tests` (config in `.luacheckrc` — enforces
   the WoW-globals boundary above far more thoroughly than the CI
   grep-based check alone, which stays as a fast, dependency-free

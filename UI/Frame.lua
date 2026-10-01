@@ -3,7 +3,7 @@ local _, Folio = ...
 -- §6.2 UI1: bounded height, always.
 local MAX_HEIGHT_SCREEN_PCT = 0.6
 -- §6.2 UI2: narrow enough to read as a list, wide enough for a full item name.
-local MIN_WIDTH, MAX_WIDTH = 260, 500
+local MIN_WIDTH, MAX_WIDTH = 220, 500
 local MIN_HEIGHT = 200
 
 local Frame = {}

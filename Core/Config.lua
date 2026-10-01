@@ -67,17 +67,10 @@ function Config.Init()
 	-- FOLIO_DB.categories exists (even as an emptied-out tree, if the user
 	-- deletes everything later) this never re-seeds.
 	--
-	-- Known issue, not fixable from here: WoW: Forever beta build
-	-- 1.60.1.69893 has a confirmed client-side bug (independently
-	-- reproduced by multiple addon authors, tracked upstream at
-	-- ClassicWoWCommunity/forever-bugs#34) where SavedVariables are
-	-- written correctly on exit but not always read back before
-	-- ADDON_LOADED fires -- this branch then (correctly, for what it can
-	-- see) treats a still-loading FOLIO_DB as a fresh install and seeds
-	-- defaults, silently losing that session's data. No addon-side
-	-- workaround found that doesn't require either an external
-	-- companion script or accepting WoW macros' ~255-char size limit,
-	-- both worse than just waiting for Blizzard to fix the client.
+	-- WoW: Forever beta build 1.60.1.69893 had a client-side bug
+	-- (ClassicWoWCommunity/forever-bugs#34) where SavedVariables weren't
+	-- always read back before ADDON_LOADED, making this branch re-seed
+	-- over real data. Fixed client-side as of later beta builds.
 	if not FOLIO_DB.categories then
 		FOLIO_DB.categories = Folio.Seed.BuildDefaultTree()
 	end

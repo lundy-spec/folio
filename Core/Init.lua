@@ -432,7 +432,9 @@ end
 -- on a category header in the SAME window recategorizes only (R2: sticky
 -- manual override, no item movement); drop on a category header in the
 -- OTHER window (main <-> bank drawer) both recategorizes AND deposits/
--- withdraws (S5), via that header's dropStorage. Stack modifiers and
+-- withdraws (S5), via that header's dropStorage. A drop anywhere else on
+-- either window just deposits/withdraws, with no recategorize (see
+-- WindowStorageUnderCursor). Stack modifiers and
 -- bulk queue/throttle are deliberate follow-ups.
 
 local function StorageBagIDs(storage)
@@ -468,6 +470,19 @@ local function ResolveDropTarget(target)
 	if target.entryKind == "item" and target.itemCategoryID then
 		return target.itemCategoryID, target.itemStorage
 	end
+	return nil
+end
+
+-- Which window's storage the cursor is over, for a drop that landed on
+-- a window but not on any category row (empty space below the list, the
+-- title bar, the scrollbar). The bank drawer is checked first: once
+-- open it sits at a higher strata than the main window, so where the two
+-- overlap it's the one actually on top.
+local function WindowStorageUnderCursor()
+	local bank = Folio.UI.BankFrame.Create()
+	if bank:IsVisible() and bank:IsMouseOver() then return "bank" end
+	local main = Folio.UI.Frame.Create()
+	if main:IsVisible() and main:IsMouseOver() then return "bags" end
 	return nil
 end
 
@@ -514,15 +529,19 @@ Folio.UI.Row.OnItemDragStop = function(itemRow, target, dropPosition)
 
 	local categoryID, toStorage = ResolveDropTarget(target)
 
-	-- Not dropped on any part of one of our own categories -- leave the
-	-- item on the cursor exactly as native WoW does on an invalid drop;
-	-- the player can still click any real bag/bank slot to place it, or
-	-- click the same slot again to cancel.
+	-- Not on a category row, but somewhere on one of Folio's windows --
+	-- transfer to that window's storage without recategorizing. Dropped
+	-- outside both windows entirely: leave the item on the cursor exactly
+	-- as native WoW does on an invalid drop; the player can still click
+	-- any real bag/bank slot to place it, or the same slot to cancel.
 	if not categoryID then
-		return
+		toStorage = WindowStorageUnderCursor()
+		if not toStorage then
+			return
+		end
 	end
 
-	if categoryID ~= itemRow.itemCategoryID then
+	if categoryID and categoryID ~= itemRow.itemCategoryID then
 		Folio.Config.db.itemOverrides[itemRow.itemID] = categoryID
 		local node = Folio.Tree.GetNode(Folio.Config.db.categories, categoryID)
 		print(("|cff33ff99Folio|r moved %s to %s."):format(itemRow.itemLink or "item", node and node.name or categoryID))
@@ -533,7 +552,7 @@ Folio.UI.Row.OnItemDragStop = function(itemRow, target, dropPosition)
 	-- ItemDropPositionRelativeTo), seeded from whatever's currently
 	-- displayed there (lastGroups) on the first-ever reorder so this only
 	-- changes the one item's position.
-	if target and target.entryKind == "item" and dropPosition then
+	if categoryID and target and target.entryKind == "item" and dropPosition then
 		local db = Folio.Config.db
 		db.itemOrder[categoryID] = db.itemOrder[categoryID] or {}
 		local seedItems = lastGroups[categoryID] and lastGroups[categoryID][toStorage]
