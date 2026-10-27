@@ -1,11 +1,13 @@
-## Interface: 120007, 120100
+## Interface: 16001
 ## Title: Folio
 ## Notes: A nested-category, Blizzard-native list view for your WoW inventory.
+## IconTexture: Interface\AddOns\Folio\Media\Icon
+## Category: Inventory
 ## Author: Lundy Hartshorn
-## Version: 0.0.1
+## Version: @project-version@
 ## SavedVariables: FOLIO_DB
 ## X-License: CC0-1.0
-## X-Curse-Project-ID: TODO
+## X-Curse-Project-ID: 1769042
 
 Core/Config.lua
 Core/API.lua
