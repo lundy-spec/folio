@@ -122,5 +122,50 @@ describe("Data.Assign", function()
 			assert.are.equal("junk", results[1])
 			assert.are.equal("consumables", results[2])
 		end)
+
+		describe("autoJunkID", function()
+			local function TreeWithJunk()
+				local tree = TreeWithClassRules()
+				Tree.AddNode(tree, "junk", { name = "Junk" })
+				return tree
+			end
+
+			it("files an unclaimed grey item under the junk category", function()
+				local results = Assign.ResolveAll(TreeWithJunk(), {
+					{ itemID = 1, itemClass = 999, quality = 0 },
+					{ itemID = 2, itemClass = 999, quality = 1 },
+				}, nil, "junk")
+				assert.are.equal("junk", results[1])
+				assert.is_nil(results[2])
+			end)
+
+			it("does nothing when not given (feature turned off)", function()
+				local results = Assign.ResolveAll(TreeWithJunk(), {
+					{ itemID = 1, itemClass = 999, quality = 0 },
+				})
+				assert.is_nil(results[1])
+			end)
+
+			it("R2: a manual override still wins over auto-junk", function()
+				local results = Assign.ResolveAll(TreeWithJunk(), {
+					{ itemID = 1, itemClass = 999, quality = 0 },
+				}, { [1] = "equipment" }, "junk")
+				assert.are.equal("equipment", results[1])
+			end)
+
+			it("a matching rule still wins over auto-junk", function()
+				local results = Assign.ResolveAll(TreeWithJunk(), {
+					{ itemID = 1, itemClass = 2, quality = 0 },
+				}, nil, "junk")
+				assert.are.equal("weapons", results[1])
+			end)
+
+			it("is ignored if the junk category was deleted", function()
+				local results = Assign.ResolveAll(TreeWithClassRules(), {
+					{ itemID = 1, itemClass = 999, quality = 0 },
+				}, nil, "junk")
+				assert.is_nil(results[1])
+			end)
+		end)
 	end)
 end)

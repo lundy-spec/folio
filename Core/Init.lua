@@ -54,7 +54,9 @@ end
 -- currently belongs to -- see Row.OnItemDragStop below.
 local function GroupByCategory(tree, items)
 	local groups = {}
-	local resolved = Folio.Data.Assign.ResolveAll(tree, items, Folio.Config.db.itemOverrides)
+	local db = Folio.Config.db
+	local resolved = Folio.Data.Assign.ResolveAll(tree, items, db.itemOverrides,
+		db.autoJunkEnabled and JUNK_CATEGORY_ID or nil)
 	for i, item in ipairs(items) do
 		local categoryID = resolved[i] or UNCATEGORIZED
 		item.categoryID = categoryID
@@ -728,6 +730,12 @@ local function ToggleBagSpaceAsPercent()
 	RefreshBagSpace()
 end
 Folio.Actions.ToggleBagSpaceAsPercent = ToggleBagSpaceAsPercent
+
+local function ToggleAutoJunk()
+	Folio.Config.db.autoJunkEnabled = not Folio.Config.db.autoJunkEnabled
+	RefreshItems()
+end
+Folio.Actions.ToggleAutoJunk = ToggleAutoJunk
 
 -- Q35/Q38: the "Show Bags" button (UI/Frame.lua) needs Blizzard's real bag
 -- frames reachable ALONGSIDE Folio, not instead of it, in one click -- a

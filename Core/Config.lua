@@ -19,6 +19,9 @@ local defaults = {
 	-- Bag-space readout next to the Show Bags button (UI/Frame.lua) --
 	-- "12/20" by default, "60%" when this is on.
 	showBagSpaceAsPercent = false,
+	-- Grey (poor-quality) items file themselves under the starter Junk
+	-- category unless manually moved elsewhere (Data/Assign.lua).
+	autoJunkEnabled = true,
 	-- R2: manual category assignment, keyed by itemID. A sticky override
 	-- no rule can move -- checked before rule resolution in
 	-- Data/Assign.lua.
@@ -56,6 +59,9 @@ function Config.Init()
 	end
 	if FOLIO_DB.showBagSpaceAsPercent == nil then
 		FOLIO_DB.showBagSpaceAsPercent = defaults.showBagSpaceAsPercent
+	end
+	if FOLIO_DB.autoJunkEnabled == nil then
+		FOLIO_DB.autoJunkEnabled = defaults.autoJunkEnabled
 	end
 	FOLIO_DB.itemOverrides = FOLIO_DB.itemOverrides or CopyTable(defaults.itemOverrides)
 	FOLIO_DB.itemOrder = FOLIO_DB.itemOrder or CopyTable(defaults.itemOrder)

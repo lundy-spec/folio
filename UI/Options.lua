@@ -46,6 +46,21 @@ local function AddBagSpacePercentCheckbox(f, anchor)
 	return check
 end
 
+local function AddAutoJunkCheckbox(f, anchor)
+	local check = CreateFrame("CheckButton", nil, f, "ChatConfigCheckButtonTemplate")
+	check:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -8)
+	check.Text:SetText("Automatically put grey items in Junk")
+	check:SetScript("OnClick", function(self)
+		if self:GetChecked() ~= Folio.Config.db.autoJunkEnabled then
+			Folio.Actions.ToggleAutoJunk()
+		end
+	end)
+	f:HookScript("OnShow", function()
+		check:SetChecked(Folio.Config.db.autoJunkEnabled)
+	end)
+	return check
+end
+
 local function MakeButton(f, text, width)
 	local btn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
 	btn:SetSize(width, 22)
@@ -100,7 +115,8 @@ function Options.Create()
 	local title = AddTitle(f)
 	local check = AddBagReplacementCheckbox(f, title)
 	local percentCheck = AddBagSpacePercentCheckbox(f, check)
-	local collapseBtn = AddCollapseButtons(f, percentCheck)
+	local autoJunkCheck = AddAutoJunkCheckbox(f, percentCheck)
+	local collapseBtn = AddCollapseButtons(f, autoJunkCheck)
 	AddResetButton(f, collapseBtn)
 
 	category = Settings.RegisterCanvasLayoutCategory(f, f.name)

@@ -14,6 +14,10 @@ end
 
 local Assign = {}
 
+-- Enum.ItemQuality.Poor -- a literal here, since Data/ can't touch WoW
+-- globals (T2).
+local POOR_QUALITY = 0
+
 local function BuildCandidates(tree)
 	local candidates = {}
 	-- Post-order: a node's children are candidates before the node itself,
@@ -51,8 +55,16 @@ end
 -- actually the bottleneck). Returns a parallel array of category ids
 -- (or nil per slot where nothing matched). `overrides` (itemID ->
 -- categoryID, R2) is checked before rule resolution per item.
-function Assign.ResolveAll(tree, items, overrides)
+--
+-- `autoJunkID` (optional): a category id that catches any poor-quality
+-- (grey) item nothing else claimed -- after overrides and rules, so a
+-- player who drags a grey item elsewhere keeps it there. Ignored if that
+-- category no longer exists in the tree (the player deleted it).
+function Assign.ResolveAll(tree, items, overrides, autoJunkID)
 	local candidates = BuildCandidates(tree)
+	if autoJunkID and not Tree.GetNode(tree, autoJunkID) then
+		autoJunkID = nil
+	end
 	local results = {}
 	for i, item in ipairs(items) do
 		local override = overrides and overrides[item.itemID]
@@ -60,6 +72,9 @@ function Assign.ResolveAll(tree, items, overrides)
 			results[i] = override
 		else
 			results[i] = Rules.Resolve(item, candidates)
+			if not results[i] and autoJunkID and item.quality == POOR_QUALITY then
+				results[i] = autoJunkID
+			end
 		end
 	end
 	return results
