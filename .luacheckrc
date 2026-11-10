@@ -28,8 +28,8 @@ local wowGlobals = {
 	-- Misc game state
 	"GetMoney", "GetMoneyString", "GetCursorInfo", "GetCursorPosition",
 	"GetMouseFoci", "GetScreenHeight", "GetScreenWidth", "ITEM_QUALITY_COLORS", "CopyTable", "time",
-	"UnitName",
-	"IsControlKeyDown", "CreateColor",
+	"UnitName", "GetRealmName",
+	"IsModifiedClick", "HandleModifiedItemClick", "ShowInspectCursor", "IsDressableItem", "CreateColor",
 	"C_Timer",
 	-- Settings panel (§ Options)
 	"Settings", "StaticPopup_Show",

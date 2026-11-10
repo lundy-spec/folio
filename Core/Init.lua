@@ -37,6 +37,55 @@ local searchText = ""
 -- open on its own, right after the player closed everything.
 local bankDrawerDismissed = false
 
+-- Arrival tracking (Logic/Sort.lua's TrackArrivals) may only FORGET
+-- items once a storage's scan can be trusted to be complete -- a partial
+-- scan right after login or right after the bank opens would otherwise
+-- wipe the order history, re-sorting everything as "new". Flipped on by
+-- short timers (PLAYER_LOGIN, BANKFRAME_OPENED).
+local bagArrivalsReady = false
+local bankArrivalsReady = false
+
+local function ArrivalsFor(storage)
+	local db = Folio.Config.db
+	local key = Folio.API.GetCharacterKey()
+	db.arrivals[key] = db.arrivals[key] or {}
+	db.arrivals[key][storage] = db.arrivals[key][storage] or { next = 1, seq = {} }
+	return db.arrivals[key][storage]
+end
+
+-- Updates arrival order from a fresh scan. Only storages actually scanned
+-- this time are touched -- bank items aren't scanned while the bank is
+-- closed, and mustn't be forgotten just for that. An item forgotten here
+-- (fully left that storage) also drops out of any manual drag-to-reorder
+-- position it had there, so if it comes back it lands at the bottom like
+-- any other new item.
+local function TrackArrivals(items)
+	local byStorage = { bags = {} }
+	if isBankOpen then byStorage.bank = {} end
+	for _, item in ipairs(items) do
+		local list = byStorage[item.storage or "bags"]
+		if list then table.insert(list, item) end
+	end
+
+	local itemOrder = Folio.Config.db.itemOrder
+	for storage, list in pairs(byStorage) do
+		local allowRemoval = (storage == "bags" and bagArrivalsReady) or (storage == "bank" and bankArrivalsReady)
+		local removed = Folio.Sort.TrackArrivals(ArrivalsFor(storage), list, allowRemoval)
+		if #removed > 0 then
+			local removedSet = {}
+			for _, id in ipairs(removed) do removedSet[id] = true end
+			for _, byOrderStorage in pairs(itemOrder) do
+				local order = byOrderStorage[storage]
+				if order then
+					for i = #order, 1, -1 do
+						if removedSet[order[i]] then table.remove(order, i) end
+					end
+				end
+			end
+		end
+	end
+end
+
 local function ScanAllStorages()
 	local items = Folio.Data.Scanner.ScanBags(Folio.API, Folio.API.GetBagIDs(), "bags")
 	if isBankOpen then
@@ -71,9 +120,11 @@ local function GroupByCategory(tree, items)
 	-- count (confirmed live: e.g. 4 physical stacks of the same reagent,
 	-- split across non-contiguous slots, showed as 4 identical-looking
 	-- rows instead of one).
+	-- Then order each bucket by arrival (new items at the bottom) rather
+	-- than raw bag-slot order.
 	for _, byStorage in pairs(groups) do
 		for storage, list in pairs(byStorage) do
-			byStorage[storage] = Folio.Consolidate.MergeStacks(list)
+			byStorage[storage] = Folio.Sort.ByArrival(Folio.Consolidate.MergeStacks(list), ArrivalsFor(storage).seq)
 		end
 	end
 
@@ -122,7 +173,7 @@ local function RefreshBankDrawer(tree, groups)
 
 	local db = Folio.Config.db
 	local bankRows = TagDropStorage(
-		Folio.Render.BuildRows(tree, groups, "bank", db.pinnedItemIDs, db.collapsedByStorage.bank), "bank")
+		Folio.Render.BuildRows(tree, groups, "bank", db.collapsedByStorage.bank), "bank")
 
 	Folio.UI.BankFrame.SetItems(bankRows)
 	Folio.UI.BankFrame.Show()
@@ -143,6 +194,7 @@ end
 local function RefreshItems()
 	local items = ScanAllStorages()
 	Folio.Data.Cache.SetItems(items)
+	TrackArrivals(items)
 
 	local tree = Folio.Config.db.categories
 	local groups = GroupByCategory(tree, items)
@@ -154,7 +206,7 @@ local function RefreshItems()
 	else
 		local db = Folio.Config.db
 		rows = TagDropStorage(
-			Folio.Render.BuildRows(tree, groups, "bags", db.pinnedItemIDs, db.collapsedByStorage.bags), "bags")
+			Folio.Render.BuildRows(tree, groups, "bags", db.collapsedByStorage.bags), "bags")
 	end
 	Folio.UI.Frame.SetItems(rows)
 
@@ -210,27 +262,6 @@ local function SetSearchText(text)
 	RefreshItems()
 end
 Folio.Actions.SetSearchText = SetSearchText
-
--- Q40/Q41: pin toggle (UI/Row.lua's shift-left-click on an item row).
--- Ordered array, not a set -- Logic/Render.lua displays pinned items in
--- pin order, and the list is expected to stay small (a handful), so a
--- linear scan per toggle is simpler than maintaining a parallel set just
--- to speed it up.
-local function ToggleItemPin(itemID)
-	local pinned = Folio.Config.db.pinnedItemIDs
-	for i, id in ipairs(pinned) do
-		if id == itemID then
-			table.remove(pinned, i)
-			RefreshItems()
-			return
-		end
-	end
-	table.insert(pinned, itemID)
-	RefreshItems()
-end
-Folio.Actions.ToggleItemPin = ToggleItemPin
-
-Folio.UI.Row.OnItemPinToggle = ToggleItemPin
 
 -- New categories always land at the root -- dragging a category onto
 -- another to *nest* it isn't supported yet either (see the reorder
@@ -616,6 +647,7 @@ bootstrap:SetScript("OnEvent", function(self, event, loadedAddon)
 		Folio.UI.Frame.Create()
 		Folio.UI.BankFrame.Create()
 		Folio.UI.Options.Create()
+		C_Timer.After(3, function() bagArrivalsReady = true end)
 		RefreshItems()
 		RefreshCurrencies()
 		if Folio.Config.db.bagReplacementEnabled then
@@ -640,12 +672,17 @@ bootstrap:SetScript("OnEvent", function(self, event, loadedAddon)
 		RefreshCurrencies()
 	elseif event == "BANKFRAME_OPENED" then
 		isBankOpen = true
+		bankArrivalsReady = false
+		C_Timer.After(1, function()
+			if isBankOpen then bankArrivalsReady = true end
+		end)
 		-- A fresh banker interaction -- clears any earlier explicit close
 		-- (Q52) so the drawer isn't stuck suppressed forever.
 		bankDrawerDismissed = false
 		RefreshItems()
 	elseif event == "BANKFRAME_CLOSED" then
 		isBankOpen = false
+		bankArrivalsReady = false
 		RefreshItems()
 	elseif event == "PLAYERBANKSLOTS_CHANGED" then
 		-- Confirmed live: purchasing a bank bag slot (not merely opening

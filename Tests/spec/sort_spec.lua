@@ -69,4 +69,69 @@ describe("Logic.Sort", function()
 			assert.are.equal(order, result)
 		end)
 	end)
+	describe("TrackArrivals", function()
+		local function ids(list)
+			local out = {}
+			for i, id in ipairs(list) do out[i] = { itemID = id } end
+			return out
+		end
+
+		it("numbers a first-ever scan in scan order", function()
+			local state = {}
+			Sort.TrackArrivals(state, ids({ 7, 3, 9 }), true)
+			assert.are.same({ [7] = 1, [3] = 2, [9] = 3 }, state.seq)
+			assert.are.equal(4, state.next)
+		end)
+
+		it("gives a new item the next number, leaving existing items alone", function()
+			local state = {}
+			Sort.TrackArrivals(state, ids({ 7, 3 }), true)
+			-- 5 picked up into an earlier bag slot than 3
+			Sort.TrackArrivals(state, ids({ 7, 5, 3 }), true)
+			assert.are.same({ [7] = 1, [3] = 2, [5] = 3 }, state.seq)
+		end)
+
+		it("forgets items that left, and returns them, when removal is allowed", function()
+			local state = {}
+			Sort.TrackArrivals(state, ids({ 7, 3 }), true)
+			local removed = Sort.TrackArrivals(state, ids({ 7 }), true)
+			assert.are.same({ 3 }, removed)
+			assert.is_nil(state.seq[3])
+		end)
+
+		it("an item that left and came back counts as new", function()
+			local state = {}
+			Sort.TrackArrivals(state, ids({ 7, 3 }), true)
+			Sort.TrackArrivals(state, ids({ 7 }), true)
+			Sort.TrackArrivals(state, ids({ 3, 7 }), true)
+			assert.are.equal(3, state.seq[3])
+		end)
+
+		it("keeps everything when removal isn't allowed (possibly partial scan)", function()
+			local state = {}
+			Sort.TrackArrivals(state, ids({ 7, 3 }), true)
+			local removed = Sort.TrackArrivals(state, ids({}), false)
+			assert.are.same({}, removed)
+			assert.are.same({ [7] = 1, [3] = 2 }, state.seq)
+		end)
+	end)
+
+	describe("ByArrival", function()
+		it("orders by arrival number, not scan order", function()
+			local items = { { itemID = 5 }, { itemID = 7 }, { itemID = 3 } }
+			local result = Sort.ByArrival(items, { [7] = 1, [3] = 2, [5] = 3 })
+			assert.are.same({ 7, 3, 5 }, { result[1].itemID, result[2].itemID, result[3].itemID })
+		end)
+
+		it("puts unnumbered items last, in original order", function()
+			local items = { { itemID = 8 }, { itemID = 7 }, { itemID = 9 } }
+			local result = Sort.ByArrival(items, { [7] = 1 })
+			assert.are.same({ 7, 8, 9 }, { result[1].itemID, result[2].itemID, result[3].itemID })
+		end)
+
+		it("returns items unchanged with no arrival data", function()
+			local items = { { itemID = 2 }, { itemID = 1 } }
+			assert.are.same(items, Sort.ByArrival(items, nil))
+		end)
+	end)
 end)

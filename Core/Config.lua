@@ -30,10 +30,6 @@ local defaults = {
 	-- itemOrder[categoryID][storage] -> ordered array of itemIDs
 	-- (Logic/Sort.lua applies this on top of the natural scan order).
 	itemOrder = {},
-	-- Pinned items (UI/Row.lua's star toggle) -- ordered array of itemIDs,
-	-- shown as a flat section above every category (Logic/Render.lua)
-	-- regardless of which category they're actually filed under.
-	pinnedItemIDs = {},
 	-- Q53: per-window/section collapse state -- collapsedByStorage[storage]
 	-- (storage = "bags"/"bank") -> categoryID -> bool, only for
 	-- categories explicitly toggled in that specific window; anything
@@ -41,6 +37,11 @@ local defaults = {
 	-- node.collapsed) in Logic/Render.lua. Expanding a category in the
 	-- bank drawer no longer expands it in the main bags window too.
 	collapsedByStorage = {},
+	-- Arrival order (Logic/Sort.lua's TrackArrivals), so new items list
+	-- at the bottom of their category: arrivals[characterKey][storage] =
+	-- { next = n, seq = { [itemID] = n } }. Per character, since
+	-- FOLIO_DB is account-wide and each character's bags differ.
+	arrivals = {},
 	-- Counter for user-created category ids ("custom1", "custom2", ...).
 	-- A persisted counter rather than a timestamp keeps ids short and
 	-- collision-free without pulling time() into this init path.
@@ -65,8 +66,10 @@ function Config.Init()
 	end
 	FOLIO_DB.itemOverrides = FOLIO_DB.itemOverrides or CopyTable(defaults.itemOverrides)
 	FOLIO_DB.itemOrder = FOLIO_DB.itemOrder or CopyTable(defaults.itemOrder)
-	FOLIO_DB.pinnedItemIDs = FOLIO_DB.pinnedItemIDs or CopyTable(defaults.pinnedItemIDs)
+	-- Item pinning was removed -- drop its saved list from older installs.
+	FOLIO_DB.pinnedItemIDs = nil
 	FOLIO_DB.collapsedByStorage = FOLIO_DB.collapsedByStorage or CopyTable(defaults.collapsedByStorage)
+	FOLIO_DB.arrivals = FOLIO_DB.arrivals or CopyTable(defaults.arrivals)
 	FOLIO_DB.nextCategoryID = FOLIO_DB.nextCategoryID or defaults.nextCategoryID
 	-- F11: seed once. Folio.Seed is pure (no WoW API calls), safe to run
 	-- here at ADDON_LOADED time rather than waiting for PLAYER_LOGIN. Once

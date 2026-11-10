@@ -219,14 +219,14 @@ describe("Logic.Render", function()
 
 		it("an override takes precedence over the node's own default", function()
 			Tree.AddNode(tree, "a", { name = "A", collapsed = true })
-			local rows = Render.BuildRows(tree, {}, "bags", nil, { a = false })
+			local rows = Render.BuildRows(tree, {}, "bags", { a = false })
 			assert.is_false(rows[1].collapsed)
 		end)
 
 		it("a category with no override yet uses the node default even when overrides exist for other categories", function()
 			Tree.AddNode(tree, "a", { name = "A", collapsed = true })
 			Tree.AddNode(tree, "b", { name = "B", collapsed = true, order = 2 })
-			local rows = Render.BuildRows(tree, {}, "bags", nil, { a = false })
+			local rows = Render.BuildRows(tree, {}, "bags", { a = false })
 
 			assert.is_false(rows[1].collapsed) -- explicitly expanded
 			assert.is_true(rows[2].collapsed) -- untouched, still its own default
@@ -236,101 +236,11 @@ describe("Logic.Render", function()
 			Tree.AddNode(tree, "a", { name = "A", collapsed = true })
 			local groups = { a = { bags = { { kind = "item", itemID = 1 } } } }
 
-			local expandedRows = Render.BuildRows(tree, groups, "bags", nil, { a = false })
-			local stillCollapsedRows = Render.BuildRows(tree, groups, "bags", nil, { b = true })
+			local expandedRows = Render.BuildRows(tree, groups, "bags", { a = false })
+			local stillCollapsedRows = Render.BuildRows(tree, groups, "bags", { b = true })
 
 			assert.are.equal(2, #expandedRows) -- header + its item, visible
 			assert.are.equal(1, #stillCollapsedRows) -- header only, still collapsed
-		end)
-	end)
-
-	describe("BuildRows with pinned items (Q40)", function()
-		it("does nothing when pinnedItemIDs is nil or empty", function()
-			Tree.AddNode(tree, "a", { name = "A" })
-			local groups = { a = { bags = { { itemID = 1, name = "Widget" } } } }
-
-			assert.are.same(Render.BuildRows(tree, groups, "bags"), Render.BuildRows(tree, groups, "bags", nil))
-			assert.are.same(Render.BuildRows(tree, groups, "bags"), Render.BuildRows(tree, groups, "bags", {}))
-		end)
-
-		it("puts pinned items first, flat, with no header", function()
-			Tree.AddNode(tree, "a", { name = "A" })
-			local groups = {
-				a = { bags = { { itemID = 1, name = "One" }, { itemID = 2, name = "Two" } } },
-			}
-			local rows = Render.BuildRows(tree, groups, "bags", { 2 })
-
-			assert.are.equal(2, rows[1].itemID)
-			assert.are.equal(0, rows[1].depth)
-			assert.is_nil(rows[1].kind)
-		end)
-
-		it("hides a pinned item from its normal category slot -- shows exactly once", function()
-			Tree.AddNode(tree, "a", { name = "A" })
-			local groups = {
-				a = { bags = { { itemID = 1, name = "One" }, { itemID = 2, name = "Two" } } },
-			}
-			local rows = Render.BuildRows(tree, groups, "bags", { 2 })
-
-			local seenTwice = 0
-			for _, row in ipairs(rows) do
-				if row.itemID == 2 then
-					seenTwice = seenTwice + 1
-				end
-			end
-			assert.are.equal(1, seenTwice)
-		end)
-
-		it("orders multiple pinned items by pin order, not encounter order", function()
-			Tree.AddNode(tree, "a", { name = "A" })
-			local groups = {
-				a = { bags = { { itemID = 1, name = "One" }, { itemID = 2, name = "Two" } } },
-			}
-			local rows = Render.BuildRows(tree, groups, "bags", { 2, 1 })
-
-			assert.are.equal(2, rows[1].itemID)
-			assert.are.equal(1, rows[2].itemID)
-		end)
-
-		it("keeps category header counts as full ownership totals, unaffected by pinning", function()
-			Tree.AddNode(tree, "a", { name = "A" })
-			local groups = {
-				a = { bags = { { itemID = 1, name = "One" }, { itemID = 2, name = "Two" } } },
-			}
-			local rows = Render.BuildRows(tree, groups, "bags", { 2 })
-
-			local header
-			for _, row in ipairs(rows) do
-				if row.kind == "header" then
-					header = row
-				end
-			end
-			assert.are.equal(2, header.count)
-		end)
-
-		it("ignores a pinned itemID that isn't currently owned", function()
-			Tree.AddNode(tree, "a", { name = "A" })
-			local groups = { a = { bags = { { itemID = 1, name = "One" } } } }
-			local rows = Render.BuildRows(tree, groups, "bags", { 999 })
-
-			for _, row in ipairs(rows) do
-				assert.are_not.equal(999, row.itemID)
-			end
-		end)
-
-		it("only pins items belonging to the requested storage", function()
-			Tree.AddNode(tree, "a", { name = "A" })
-			local groups = {
-				a = {
-					bags = { { itemID = 1, name = "InBags" } },
-					bank = { { itemID = 1, name = "InBank" } },
-				},
-			}
-			local bagsRows = Render.BuildRows(tree, groups, "bags", { 1 })
-			local bankRows = Render.BuildRows(tree, groups, "bank", { 1 })
-
-			assert.are.equal("InBags", bagsRows[1].name)
-			assert.are.equal("InBank", bankRows[1].name)
 		end)
 	end)
 

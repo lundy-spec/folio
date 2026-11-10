@@ -82,7 +82,8 @@ in settings.
 ### Organizing
 - **Nested categories** as deep as you like
 - **Drag to file.** An item stays in its category until you move it.
-- **Pin items** to the top of the list with **Ctrl-click**
+- **Ctrl-click** an item to preview it on your character, and
+  **Shift-click** to link it in chat, just like the default bags
 - **Live search** filters the list as you type
 - **Stacks merged** into one row with a total count
 - **Collapse or expand** any category. Folio remembers what you collapsed.

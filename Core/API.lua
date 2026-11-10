@@ -127,6 +127,12 @@ local function GetPurchasedBankTabIDs(bankType)
 	return {}
 end
 
+-- "Name-Realm" -- keys per-character state inside the account-wide
+-- FOLIO_DB (Core/Config.lua's arrivals).
+function API.GetCharacterKey()
+	return (UnitName("player") or "?") .. "-" .. (GetRealmName() or "?")
+end
+
 function API.GetCharacterBankTabIDs()
 	return GetPurchasedBankTabIDs(Enum.BankType.Character)
 end

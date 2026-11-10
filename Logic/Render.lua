@@ -53,55 +53,20 @@ local function SubtreeItemCount(tree, itemsByCategory, nodeId, storage)
 	return total
 end
 
--- skipSet, if given, omits any item whose itemID is a key in it -- used
--- to keep a pinned item from appearing twice (once up top, once in its
--- own category, see below).
-local function AppendItemRows(rows, items, depth, skipSet)
+local function AppendItemRows(rows, items, depth)
 	for _, item in ipairs(items) do
-		if not (skipSet and skipSet[item.itemID]) then
-			local row = {}
-			for k, v in pairs(item) do
-				row[k] = v
-			end
-			row.depth = depth
-			table.insert(rows, row)
+		local row = {}
+		for k, v in pairs(item) do
+			row[k] = v
 		end
-	end
-end
-
--- Pinned items (Q40) render as a flat, un-headered block above every
--- category, in pin order (not encounter order, which `pairs()` over
--- itemsByCategory doesn't guarantee anyway) -- a linear scan per pinned
--- id rather than one big table build, since the pinned list is expected
--- to stay small (a handful of items, not hundreds). Only this call's
--- storage is considered -- a pinned item shows in whichever
--- window/section it's actually physically in.
-local function AppendPinnedRows(rows, itemsByCategory, pinnedItemIDs, storage)
-	for _, pinnedID in ipairs(pinnedItemIDs) do
-		for _, byStorage in pairs(itemsByCategory) do
-			for _, item in ipairs(byStorage[storage] or {}) do
-				if item.itemID == pinnedID then
-					local row = {}
-					for k, v in pairs(item) do
-						row[k] = v
-					end
-					row.depth = 0
-					table.insert(rows, row)
-				end
-			end
-		end
+		row.depth = depth
+		table.insert(rows, row)
 	end
 end
 
 -- itemsByCategory: categoryID -> { bags = {...}, bank = {...} } (see
 -- Data/Scanner.lua's `storage` field, tagged per scan). `storage`
--- (default "bags") picks which one this call renders. `pinnedItemIDs`
--- (Q40, optional -- nil/empty means nothing's pinned) surfaces those
--- items in a block above everything else and hides them from their
--- normal category slot, so they show exactly once, not twice; category
--- header counts (below) deliberately still count them -- pinning is a
--- display convenience, not a re-categorization, the item still really is
--- filed there.
+-- (default "bags") picks which one this call renders.
 --
 -- Anything bucketed under a categoryID with no real tree node -- the
 -- fallback for items nothing's been manually sorted into yet, or an
@@ -112,18 +77,9 @@ end
 -- `collapsedOverrides` (Q53, optional -- nil means every category uses
 -- its own node.collapsed default) is this storage's slice of
 -- db.collapsedByStorage.
-function Render.BuildRows(tree, itemsByCategory, storage, pinnedItemIDs, collapsedOverrides)
+function Render.BuildRows(tree, itemsByCategory, storage, collapsedOverrides)
 	storage = storage or "bags"
 	local rows = {}
-
-	local pinnedSet
-	if pinnedItemIDs and #pinnedItemIDs > 0 then
-		pinnedSet = {}
-		for _, id in ipairs(pinnedItemIDs) do
-			pinnedSet[id] = true
-		end
-		AppendPinnedRows(rows, itemsByCategory, pinnedItemIDs, storage)
-	end
 
 	local function walk(parentId, depth)
 		for _, node in ipairs(Tree.GetChildren(tree, parentId)) do
@@ -144,7 +100,7 @@ function Render.BuildRows(tree, itemsByCategory, storage, pinnedItemIDs, collaps
 				-- in it.
 				walk(node.id, depth + 1)
 				local own = itemsByCategory[node.id] or {}
-				AppendItemRows(rows, own[storage] or {}, depth + 1, pinnedSet)
+				AppendItemRows(rows, own[storage] or {}, depth + 1)
 			end
 		end
 	end
@@ -164,7 +120,7 @@ function Render.BuildRows(tree, itemsByCategory, storage, pinnedItemIDs, collaps
 
 	for _, categoryID in ipairs(leftoverIDs) do
 		local byStorage = itemsByCategory[categoryID]
-		AppendItemRows(rows, byStorage[storage] or {}, 0, pinnedSet)
+		AppendItemRows(rows, byStorage[storage] or {}, 0)
 	end
 
 	return rows

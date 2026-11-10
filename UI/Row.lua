@@ -37,11 +37,6 @@ Row.OnItemDragStop = nil
 -- when released -- see the drag-tracking below.
 Row.OnHeaderDragStop = nil
 
--- Set by Core/Init.lua. Q40/Q41: shift-left-click an item row to pin/
--- unpin it -- the star-button version didn't render right and was
--- dropped in favor of this.
-Row.OnItemPinToggle = nil
-
 local INDENT = 12
 local FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 local HEADER_COLOR = { 1, 0.82, 0 }
@@ -81,15 +76,22 @@ local dragInProgress = false
 local useButton
 local hoveredItemRow
 
-local function ShowItemHover(row)
-	if hoveredItemRow and hoveredItemRow ~= row then
-		hoveredItemRow.hoverHighlight:Hide()
+-- Can this item be previewed on the character (ctrl-click's dressing
+-- room)? Gear and cosmetics yes; potions, reagents etc. no.
+local function IsDressable(itemLink)
+	if C_Item.IsDressableItemByID then
+		return C_Item.IsDressableItemByID(itemLink)
 	end
-	hoveredItemRow = row
-	row.hoverHighlight:Show()
-	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-	GameTooltip:SetHyperlink(row.itemLink)
-	GameTooltip:Show()
+	return IsDressableItem and IsDressableItem(itemLink)
+end
+
+-- The cursor Blizzard's own bag slots show for the hovered item: the
+-- sell cursor at a vendor (see the comment below), the magnifying-glass
+-- inspect cursor while the dressing-room modifier (ctrl by default) is
+-- held over a previewable item, otherwise the normal cursor. Re-run on
+-- MODIFIER_STATE_CHANGED (below) so pressing/releasing ctrl updates it
+-- without having to move the mouse.
+local function UpdateHoverCursor(row)
 	-- Same cursor Blizzard's own bag item buttons show while a merchant
 	-- is open (confirmed against ContainerFrame.lua's own MerchantFrame:
 	-- IsVisible() + ShowContainerSellCursor(bag, slot) pattern) -- matches
@@ -112,7 +114,31 @@ local function ShowItemHover(row)
 		elseif SetCursor then
 			SetCursor("Interface\\Cursor\\Buy")
 		end
+	elseif row.itemLink and IsModifiedClick("DRESSUP") and IsDressable(row.itemLink) then
+		ShowInspectCursor()
+	elseif ResetCursor then
+		ResetCursor()
 	end
+end
+
+local modifierWatcher = CreateFrame("Frame")
+modifierWatcher:RegisterEvent("MODIFIER_STATE_CHANGED")
+modifierWatcher:SetScript("OnEvent", function()
+	if hoveredItemRow then
+		UpdateHoverCursor(hoveredItemRow)
+	end
+end)
+
+local function ShowItemHover(row)
+	if hoveredItemRow and hoveredItemRow ~= row then
+		hoveredItemRow.hoverHighlight:Hide()
+	end
+	hoveredItemRow = row
+	row.hoverHighlight:Show()
+	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+	GameTooltip:SetHyperlink(row.itemLink)
+	GameTooltip:Show()
+	UpdateHoverCursor(row)
 end
 
 -- Guarded by identity, not unconditional: this can fire slightly before
@@ -578,14 +604,14 @@ local function Build(row)
 	end)
 	row:SetScript("OnMouseUp", function(self, button)
 		if button == "RightButton" then return end
-		-- Q40/Q41: ctrl-left-click an item row to pin/unpin it. Shift
-		-- originally, but confirmed live that collides with shift-click's
-		-- existing, much more common use (linking an item into chat) --
-		-- ctrl-click isn't claimed by anything else on an item row.
-		if button == "LeftButton" and self.entryKind == "item" and IsControlKeyDown() then
-			if Row.OnItemPinToggle and self.itemID then
-				Row.OnItemPinToggle(self.itemID)
-			end
+		-- Modified left-clicks behave like Blizzard's own bag slots, via the
+		-- same HandleModifiedItemClick they use (so they follow the
+		-- player's modifier keybinding settings too): ctrl-click previews
+		-- the item on the character (dressing room), shift-click inserts
+		-- its link into chat -- only if a chat edit box is open; otherwise
+		-- it does nothing.
+		if button == "LeftButton" and self.entryKind == "item" and self.itemLink and IsModifiedClick() then
+			HandleModifiedItemClick(self.itemLink)
 			return
 		end
 		if self.entryKind == "header" and self.categoryID and Row.OnHeaderClick then
