@@ -5,13 +5,14 @@ on:
     branches: [main]
   pull_request:
   workflow_call:
+  workflow_dispatch:
 
 jobs:
   lint:
     name: Lint Logic/ for WoW globals
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Forbid WoW globals in Logic/
         run: |
           violation=0
@@ -30,11 +31,22 @@ jobs:
     name: luacheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: leafo/gh-actions-lua@v10
-      - uses: leafo/gh-actions-luarocks@v4
+      - uses: actions/checkout@v5
+      # Lua from Ubuntu's own package mirrors rather than a download from
+      # lua.org (leafo/gh-actions-lua), which intermittently timed out and
+      # failed releases. Rock installs from luarocks.org are retried for
+      # the same reason.
+      - name: Install Lua 5.4 and LuaRocks
+        run: |
+          sudo apt-get -o Acquire::Retries=3 update -qq
+          sudo apt-get -o Acquire::Retries=3 install -y -qq lua5.4 liblua5.4-dev luarocks
       - name: Install luacheck
-        run: luarocks install luacheck
+        run: |
+          for attempt in 1 2 3; do
+            sudo luarocks --lua-version=5.4 install luacheck && exit 0
+            echo "luarocks install failed (attempt $attempt), retrying..."; sleep 10
+          done
+          exit 1
       - name: Run luacheck
         run: luacheck Core Data Logic UI Tests
 
@@ -42,11 +54,22 @@ jobs:
     name: busted specs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: leafo/gh-actions-lua@v10
-      - uses: leafo/gh-actions-luarocks@v4
+      - uses: actions/checkout@v5
+      # Lua from Ubuntu's own package mirrors rather than a download from
+      # lua.org (leafo/gh-actions-lua), which intermittently timed out and
+      # failed releases. Rock installs from luarocks.org are retried for
+      # the same reason.
+      - name: Install Lua 5.4 and LuaRocks
+        run: |
+          sudo apt-get -o Acquire::Retries=3 update -qq
+          sudo apt-get -o Acquire::Retries=3 install -y -qq lua5.4 liblua5.4-dev luarocks
       - name: Install busted
-        run: luarocks install busted
+        run: |
+          for attempt in 1 2 3; do
+            sudo luarocks --lua-version=5.4 install busted && exit 0
+            echo "luarocks install failed (attempt $attempt), retrying..."; sleep 10
+          done
+          exit 1
       - name: Run specs
         run: |
           if [ -d Tests/spec ] && [ -n "$(find Tests/spec -name '*_spec.lua')" ]; then
