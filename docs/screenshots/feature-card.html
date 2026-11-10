@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Folio Feature Card</title>
+<!--
+  Marketing-style CurseForge gallery image: one real in-game screenshot,
+  with WoW-tooltip-style callouts pointing at features. 1600x900.
+  Edit CARD below (image path, headline, callout targets in the
+  screenshot's own pixel coordinates), then render:
+    swift tools/render.swift feature-card.html out/<name>.png 1600 900
+  Pass ?card=<name> to pick one of the CARDS presets.
+-->
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 1600px; height: 900px; overflow: hidden; }
+  body {
+    background:
+      radial-gradient(1100px 700px at 68% 45%, #3a2412 0%, #1a0f07 55%, #0b0604 100%);
+    color: #f3e6c8;
+    font-family: "Palatino", "Book Antiqua", Georgia, serif;
+    position: relative;
+  }
+  /* faint parchment grain */
+  body::before {
+    content: ""; position: absolute; inset: 0; opacity: .08;
+    background-image: repeating-linear-gradient(115deg, #fff 0 1px, transparent 1px 4px);
+    pointer-events: none;
+  }
+  .brand { position: absolute; left: 80px; top: 72px; display: flex; align-items: center; gap: 18px; }
+  .brand img { width: 72px; height: 72px; }
+  .brand span { font-size: 40px; letter-spacing: 2px; color: #ffd76a; }
+  h1 {
+    position: absolute; left: 80px; top: 200px; width: 560px; margin: 0;
+    font-size: 58px; line-height: 1.08; font-weight: normal; color: #fff4d6;
+    text-shadow: 0 2px 18px rgba(0,0,0,.6);
+  }
+  .sub {
+    position: absolute; left: 80px; width: 520px; margin: 0;
+    font: 22px/1.45 -apple-system, "Helvetica Neue", sans-serif; color: #cbb894;
+  }
+  .footer {
+    position: absolute; left: 80px; bottom: 64px;
+    font: 16px -apple-system, "Helvetica Neue", sans-serif; letter-spacing: 3px;
+    text-transform: uppercase; color: #9a8662;
+  }
+  .shot {
+    position: absolute; border: 2px solid #b8893a; border-radius: 6px;
+    box-shadow: 0 0 0 1px #000, 0 24px 70px rgba(0,0,0,.75), 0 0 60px rgba(255,190,80,.12);
+  }
+  svg.lines { position: absolute; inset: 0; width: 1600px; height: 900px; }
+  /* WoW-tooltip-style callout */
+  .callout {
+    position: absolute; width: 330px; padding: 14px 18px 15px;
+    background: linear-gradient(180deg, rgba(14,16,30,.96), rgba(6,8,16,.96));
+    border: 2px solid #c9a24c; border-radius: 6px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.8), 0 10px 30px rgba(0,0,0,.6);
+  }
+  .callout b { display: block; font-size: 23px; font-weight: normal; color: #ffd100; margin-bottom: 4px; }
+  .callout p { margin: 0; font: 17px/1.4 -apple-system, "Helvetica Neue", sans-serif; color: #e9e2d0; }
+</style>
+</head>
+<body>
+  <div class="brand"><img src="../branding/folio-logo.svg" alt=""><span>FOLIO</span></div>
+  <h1 id="headline"></h1>
+  <p class="sub" id="sub"></p>
+  <div class="footer">For World of Warcraft: Forever</div>
+  <svg class="lines" id="lines"></svg>
+
+<script>
+// Each card: one screenshot + callouts. Targets are [x, y] in the
+// screenshot's own pixels (before `scale`); `y` on a callout is its
+// vertical position on the 900px canvas. Callouts stack to the right of
+// the screenshot unless side: "left".
+const CARDS = {
+  demo: {
+    image: "raw/demo-main-crop.png",
+    scale: 1.0,
+    shotLeft: 760,
+    headline: "Your bags, as a list you organize.",
+    sub: "Nested categories you build yourself, in Blizzard's own window style.",
+    callouts: [
+      { title: "Live search", text: "Filter the whole list as you type.", target: [125, 33], y: 40 },
+      { title: "Nested categories", text: "Build your own folders, as deep as you like.", target: [40, 83], y: 160 },
+      { title: "Drag to file", text: "Drop an item on a category and it stays there.", target: [67, 115], y: 290 },
+      { title: "Auto-junk", text: "Grey items file themselves into Junk.", target: [40, 346], y: 420 },
+      { title: "Bag space at a glance", text: "Shown as slots or a percentage.", target: [42, 728], y: 690 },
+    ],
+  },
+};
+
+const card = CARDS[new URLSearchParams(location.search).get("card") || "demo"];
+document.getElementById("headline").textContent = card.headline;
+const sub = document.getElementById("sub");
+sub.textContent = card.sub;
+
+const img = new Image();
+img.className = "shot";
+img.onload = () => {
+  const w = img.naturalWidth * card.scale, h = img.naturalHeight * card.scale;
+  const left = card.shotLeft, top = Math.round((900 - h) / 2);
+  Object.assign(img.style, { left: left + "px", top: top + "px", width: w + "px", height: h + "px" });
+  document.body.insertBefore(img, document.getElementById("lines"));
+
+  sub.style.top = (document.getElementById("headline").getBoundingClientRect().bottom + 24) + "px";
+
+  const svg = document.getElementById("lines");
+  const NS = "http://www.w3.org/2000/svg";
+  for (const c of card.callouts) {
+    const tx = left + c.target[0] * card.scale, ty = top + c.target[1] * card.scale;
+    const box = document.createElement("div");
+    box.className = "callout";
+    box.innerHTML = `<b></b><p></p>`;
+    box.querySelector("b").textContent = c.title;
+    box.querySelector("p").textContent = c.text;
+    const bx = c.side === "left" ? left - 120 - 330 : left + w + 120;
+    Object.assign(box.style, { left: bx + "px", top: c.y + "px" });
+    document.body.appendChild(box);
+
+    const r = box.getBoundingClientRect();
+    const ax = c.side === "left" ? r.right : r.left, ay = r.top + r.height / 2;
+    const path = document.createElementNS(NS, "path");
+    const mx = (ax + tx) / 2;
+    path.setAttribute("d", `M${ax},${ay} C${mx},${ay} ${mx},${ty} ${tx},${ty}`);
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", "#e0b552");
+    path.setAttribute("stroke-width", "2.5");
+    path.setAttribute("opacity", ".9");
+    svg.appendChild(path);
+    const dot = document.createElementNS(NS, "circle");
+    dot.setAttribute("cx", tx); dot.setAttribute("cy", ty); dot.setAttribute("r", 6);
+    dot.setAttribute("fill", "#ffd100"); dot.setAttribute("stroke", "#3a2410"); dot.setAttribute("stroke-width", 3);
+    svg.appendChild(dot);
+  }
+};
+img.src = card.image;
+</script>
+</body>
+</html>
